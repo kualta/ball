@@ -265,7 +265,7 @@ export async function createBall(container: HTMLElement) {
     if (!width || !height) return;
     renderer.setSize(width, height);
     camera.aspect = width / height;
-    camera.position.z = camera.aspect < 0.9 ? 8.0 : 7.2;
+    camera.position.z = Math.max(7.2, 6.4 / camera.aspect);
     camera.updateProjectionMatrix();
   }
   const observer = new ResizeObserver(resize);
