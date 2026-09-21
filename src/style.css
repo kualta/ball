@@ -1,7 +1,7 @@
 :root {
   font-family: "DM Sans", sans-serif;
-  color: #eee8fc;
-  background: #08050e;
+  color: #e8e8ed;
+  background: #07070a;
   color-scheme: dark;
   font-synthesis: none;
 }
@@ -30,8 +30,7 @@ header h1 {
   font-size: 20px;
   font-weight: 400;
   letter-spacing: -0.5px;
-  color: #e0d3ee;
-  text-shadow: 0 0 28px #9862cb60;
+  color: #c7c6cf;
 }
 main {
   flex: 1;
@@ -58,23 +57,20 @@ main {
 }
 form {
   position: relative;
-  width: min(520px, calc(100% - 48px));
+  width: min(480px, calc(100% - 40px));
   margin: 24px auto max(36px, env(safe-area-inset-bottom));
   flex-shrink: 0;
 }
 .question-field {
   display: flex;
-  background: #130d1e;
-  border: 1px solid #4f346c;
-  border-radius: 10px;
+  background: #141419;
+  border: 1px solid #303039;
+  border-radius: 999px;
   padding: 7px;
-  box-shadow:
-    0 0 32px #773bc525,
-    inset 0 1px 0 #b984ff10;
+  box-shadow: 0 12px 40px #00000020;
 }
 .question-field:focus-within {
-  outline: 2px solid #ad78ed;
-  outline-offset: 3px;
+  border-color: #797586;
 }
 input,
 button {
@@ -87,11 +83,11 @@ input {
   background: transparent;
   outline: 0;
   padding: 12px;
-  color: #eee6fa;
+  color: #eeedf2;
   font-size: 16px;
 }
 input::placeholder {
-  color: #9a88ad;
+  color: #92909d;
 }
 .ask {
   display: grid;
@@ -99,14 +95,14 @@ input::placeholder {
   min-width: 44px;
   min-height: 44px;
   border: 0;
-  border-radius: 5px;
-  background: #7244a5;
-  color: #f6f5ed;
+  border-radius: 50%;
+  background: #d5d0e4;
+  color: #282431;
   font-size: 22px;
   cursor: pointer;
 }
 .ask:hover {
-  background: #8d56c6;
+  background: #eeebf6;
 }
 .ask:disabled {
   opacity: 0.5;
@@ -114,7 +110,7 @@ input::placeholder {
 }
 .ask:focus-visible,
 a:focus-visible {
-  outline: 2px solid #af7fea;
+  outline: 2px solid #aaa3c2;
   outline-offset: 4px;
 }
 .error {
@@ -186,15 +182,6 @@ a:focus-visible {
     margin-top: 20px;
     margin-bottom: max(30px, env(safe-area-inset-bottom));
   }
-}
-
-#stage {
-  background: radial-gradient(
-    ellipse at center,
-    #45206338 0%,
-    #21102e20 35%,
-    transparent 65%
-  );
 }
 
 #stage[data-dragging="true"] {

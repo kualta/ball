@@ -1,3 +1,5 @@
+import { stepRotationSpring } from "./rotation-spring";
+import { createAtmosphere } from "./atmosphere";
 import { layoutAnswer } from "./answer-layout";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -17,6 +19,8 @@ export async function createBall(container: HTMLElement) {
   renderer.domElement.setAttribute("aria-hidden", "true");
   container.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
+  const atmosphere = createAtmosphere();
+  scene.add(atmosphere.mesh);
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 30);
   camera.position.set(0, 0.12, 7.2);
   camera.lookAt(0, 0, 0);
@@ -136,7 +140,7 @@ export async function createBall(container: HTMLElement) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   function writeAnswer(answer: string) {
-    context.fillStyle = "#362076";
+    context.fillStyle = "#34334f";
     context.fillRect(0, 0, 512, 444);
     context.strokeStyle = "rgba(153,197,255,.2)";
     context.lineWidth = 3;
@@ -160,8 +164,8 @@ export async function createBall(container: HTMLElement) {
     context.font = `600 ${layout.size}px Arial, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillStyle = "#f4edff";
-    context.shadowColor = "#af8dff";
+    context.fillStyle = "#f0eff8";
+    context.shadowColor = "#c4c0e3";
     context.shadowBlur = 3;
     for (const line of layout.lines) context.fillText(line.text, 256, line.y);
     context.restore();
@@ -189,7 +193,7 @@ export async function createBall(container: HTMLElement) {
     },
     vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader: `varying vec2 vUv; uniform float uTime; uniform float uEnergy; uniform vec2 uSlosh;
-    void main(){vec2 p=(vUv-.5)*2.; p += uSlosh * sin(uTime * 3.);float r=length(p);float edge=smoothstep(.45,1.,r);float ripple=sin(r*24.-uTime*1.7+sin(p.x*8.+uTime)*.5)*.5+.5;float wave=sin(p.x*8.+p.y*11.+uTime*1.2)*sin(p.y*13.-uTime*.9);vec3 col=mix(vec3(.018,.055,.20),vec3(.025,.19,.55),edge*.7+ripple*.12);float alpha=.10+edge*.70+uEnergy*(.09+wave*.035);float glint=pow(max(0.,1.-abs(r-.91)*35.),2.)*.21;col+=vec3(.19,.37,.62)*glint;gl_FragColor=vec4(col,alpha);}`,
+    void main(){vec2 p=(vUv-.5)*2.; p += uSlosh * sin(uTime * 3.);float r=length(p);float edge=smoothstep(.45,1.,r);float ripple=sin(r*24.-uTime*1.7+sin(p.x*8.+uTime)*.5)*.5+.5;float wave=sin(p.x*8.+p.y*11.+uTime*1.2)*sin(p.y*13.-uTime*.9);vec3 col=mix(vec3(.035,.039,.09),vec3(.13,.14,.25),edge*.7+ripple*.12);float alpha=.10+edge*.70+uEnergy*(.09+wave*.035);float glint=pow(max(0.,1.-abs(r-.91)*35.),2.)*.21;col+=vec3(.30,.30,.43)*glint;gl_FragColor=vec4(col,alpha);}`,
   });
   const fluid = new THREE.Mesh(
     new THREE.CircleGeometry(0.825, 96),
@@ -200,7 +204,7 @@ export async function createBall(container: HTMLElement) {
   const glassRim = new THREE.Mesh(
     new THREE.TorusGeometry(0.807, 0.011, 8, 96),
     new THREE.MeshBasicMaterial({
-      color: 0x9370df,
+      color: 0x8886aa,
       transparent: true,
       opacity: 0.4,
     }),
@@ -246,6 +250,8 @@ export async function createBall(container: HTMLElement) {
     lastY = 0,
     pointerTime = 0;
   const angularVelocity = new THREE.Vector2();
+  const springVelocity = new THREE.Vector3();
+  let coastRemaining = 0;
   const slosh = new THREE.Vector2();
   const internalLag = new THREE.Quaternion();
   const dragRotation = new THREE.Quaternion();
@@ -282,10 +288,12 @@ export async function createBall(container: HTMLElement) {
       return;
     event.preventDefault();
     pointerId = event.pointerId;
+    coastRemaining = 0;
     lastX = event.clientX;
     lastY = event.clientY;
     pointerTime = event.timeStamp;
     angularVelocity.set(0, 0);
+    springVelocity.set(0, 0, 0);
     container.setPointerCapture(event.pointerId);
     container.dataset.dragging = "true";
     container.dataset.pointerFocus = "true";
@@ -299,8 +307,12 @@ export async function createBall(container: HTMLElement) {
     const dt = Math.max(0.008, (event.timeStamp - pointerTime) / 1000);
     rotateFromDrag(dx, dy);
     angularVelocity.set(
-      THREE.MathUtils.clamp(dx / dt, -5, 5),
-      THREE.MathUtils.clamp(dy / dt, -5, 5),
+      THREE.MathUtils.clamp(dx / dt, -14, 14),
+      THREE.MathUtils.clamp(dy / dt, -14, 14),
+    );
+    springVelocity.lerp(
+      new THREE.Vector3(angularVelocity.y, angularVelocity.x, 0),
+      0.65,
     );
     lastX = event.clientX;
     lastY = event.clientY;
@@ -308,8 +320,15 @@ export async function createBall(container: HTMLElement) {
   }
   function pointerEnd(event: PointerEvent) {
     if (event.pointerId !== pointerId) return;
-    if (event.type !== "pointerup" || event.timeStamp - pointerTime > 100)
+    if (event.type !== "pointerup" || event.timeStamp - pointerTime > 100) {
       angularVelocity.set(0, 0);
+      springVelocity.set(0, 0, 0);
+    }
+    coastRemaining = THREE.MathUtils.clamp(
+      (springVelocity.length() - 1.5) * 0.09,
+      0,
+      0.9,
+    );
     pointerId = null;
     delete container.dataset.dragging;
     if (container.hasPointerCapture(event.pointerId))
@@ -327,10 +346,12 @@ export async function createBall(container: HTMLElement) {
       event.preventDefault();
       handRotation.quaternion.identity();
       angularVelocity.set(0, 0);
+      springVelocity.set(0, 0, 0);
     } else if (directions[event.key]) {
       event.preventDefault();
       rotateFromDrag(...directions[event.key]);
       angularVelocity.set(0, 0);
+      springVelocity.set(0, 0, 0);
     }
   }
   container.addEventListener("pointerdown", pointerDown);
@@ -371,19 +392,34 @@ export async function createBall(container: HTMLElement) {
     last = now;
     elapsed += dt;
     const thinking = state === "thinking";
-    if (pointerId === null && !reduced.matches) {
-      rotateFromDrag(angularVelocity.x * dt, angularVelocity.y * dt);
-      angularVelocity.multiplyScalar(Math.exp(-dt * 4));
+    if (pointerId === null) {
+      if (reduced.matches) {
+        handRotation.quaternion.identity();
+        springVelocity.set(0, 0, 0);
+      } else if (coastRemaining > 0) {
+        const speed = springVelocity.length();
+        if (speed > 0.001) {
+          dragAxis.copy(springVelocity).divideScalar(speed);
+          dragRotation.setFromAxisAngle(dragAxis, speed * dt);
+          handRotation.quaternion.premultiply(dragRotation).normalize();
+          internalLag.premultiply(dragRotation.clone().invert()).normalize();
+          disturbance = Math.max(disturbance, Math.min(1, speed * 0.15));
+        }
+        springVelocity.multiplyScalar(Math.exp(-1.4 * dt));
+        coastRemaining = Math.max(0, coastRemaining - dt);
+      } else stepRotationSpring(handRotation.quaternion, springVelocity, dt);
     }
-    if (reduced.matches) angularVelocity.set(0, 0);
     disturbance *= Math.exp(-dt * 2);
     slosh.multiplyScalar(Math.exp(-dt * 2.2));
     internalLag.slerp(restRotation, 1 - Math.exp(-dt * 1.7));
-    if (thinking && pointerId === null)
-      handRotation.quaternion.slerp(restRotation, 1 - Math.exp(-dt * 3));
     fluidMaterial.uniforms.uSlosh.value.copy(slosh);
     energy = THREE.MathUtils.damp(energy, thinking ? 1 : disturbance, 3, dt);
-    fluidMaterial.uniforms.uTime.value = elapsed;
+    atmosphere.update(
+      reduced.matches ? 0 : elapsed,
+      camera.aspect,
+      reduced.matches ? 0 : energy,
+    );
+    fluidMaterial.uniforms.uTime.value = reduced.matches ? 0 : elapsed;
     fluidMaterial.uniforms.uEnergy.value = reduced.matches ? 0 : energy;
     if (!reduced.matches) {
       spin += dt * (thinking ? 2.8 : 0.12);
@@ -439,7 +475,11 @@ export async function createBall(container: HTMLElement) {
         thinkingStart = elapsed;
         ball.rotation.y = 0;
       }
-      if (next === "thinking") angularVelocity.set(0, 0);
+      if (next === "thinking") {
+        coastRemaining = 0;
+        angularVelocity.set(0, 0);
+        springVelocity.set(0, 0, 0);
+      }
       state = next;
       if (answer) writeAnswer(answer);
       else if (next === "thinking") writeAnswer("");
