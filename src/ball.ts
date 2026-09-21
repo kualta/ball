@@ -1,3 +1,4 @@
+import { layoutAnswer } from "./answer-layout";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -10,7 +11,7 @@ export async function createBall(container: HTMLElement) {
     powerPreference: "low-power",
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-  renderer.setClearColor(0xeeece6, 0);
+  renderer.setClearColor(0x08050e, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
@@ -26,10 +27,10 @@ export async function createBall(container: HTMLElement) {
   scene.environment = env.texture;
   environment.dispose();
   pmrem.dispose();
-  const key = new THREE.DirectionalLight(0xfff8ec, 4);
+  const key = new THREE.DirectionalLight(0xddd0ff, 2.4);
   key.position.set(-3, 5, 5);
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0xbccfff, 2);
+  const fill = new THREE.DirectionalLight(0x9b65ff, 3);
   fill.position.set(4, 1, 2);
   scene.add(fill);
   const blue = new THREE.PointLight(0x356cff, 1.5, 3);
@@ -152,7 +153,7 @@ export async function createBall(container: HTMLElement) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   function writeAnswer(answer: string) {
-    context.fillStyle = "#174bb0";
+    context.fillStyle = "#362076";
     context.fillRect(0, 0, 512, 444);
     context.strokeStyle = "rgba(153,197,255,.2)";
     context.lineWidth = 3;
@@ -162,31 +163,25 @@ export async function createBall(container: HTMLElement) {
     context.lineTo(256, 428);
     context.closePath();
     context.stroke();
-    const words = answer.toUpperCase().split(/\s+/);
-    const lines: string[] = [];
-    let line = "";
-    const size = answer.length > 27 ? 58 : 70;
-    context.font = `600 ${size}px "Arial", sans-serif`;
-    for (const word of words) {
-      const next = line ? `${line} ${word}` : word;
-      const limit = lines.length === 0 ? 410 : lines.length === 1 ? 315 : 230;
-      if (context.measureText(next).width > limit && line) {
-        lines.push(line);
-        line = word;
-      } else line = next;
-    }
-    if (line) lines.push(line);
+    const layout = layoutAnswer(answer, (text, size) => {
+      context.font = `600 ${size}px Arial, sans-serif`;
+      return context.measureText(text).width;
+    });
+    context.save();
+    context.beginPath();
+    context.moveTo(24, 20);
+    context.lineTo(488, 20);
+    context.lineTo(256, 414);
+    context.closePath();
+    context.clip();
+    context.font = `600 ${layout.size}px Arial, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillStyle = "#edf6ff";
-    context.shadowColor = "#85baff";
+    context.fillStyle = "#f4edff";
+    context.shadowColor = "#af8dff";
     context.shadowBlur = 3;
-    const gap = lines.length > 3 ? 57 : 74;
-    lines.forEach((text, i) => {
-      const y = 78 + i * gap;
-      context.fillText(text, 256, y, 470 - y * 1.04);
-    });
-    context.shadowBlur = 0;
+    for (const line of layout.lines) context.fillText(line.text, 256, line.y);
+    context.restore();
     texture.needsUpdate = true;
   }
   writeAnswer("ASK A QUESTION");
@@ -218,7 +213,7 @@ export async function createBall(container: HTMLElement) {
   const glassRim = new THREE.Mesh(
     new THREE.TorusGeometry(0.807, 0.011, 8, 96),
     new THREE.MeshBasicMaterial({
-      color: 0x436497,
+      color: 0x9370df,
       transparent: true,
       opacity: 0.4,
     }),
