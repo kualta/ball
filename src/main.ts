@@ -2,6 +2,7 @@ import "@fontsource/dm-sans/400.css";
 import "@fontsource/manrope/500.css";
 import "./style.css";
 import { createBall } from "./ball";
+import { createQuestionGhosts } from "./question-ghosts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
@@ -15,6 +16,7 @@ const status = document.querySelector<HTMLElement>("#status")!;
 const ask = document.querySelector<HTMLButtonElement>(".ask")!;
 const form = document.querySelector<HTMLFormElement>("form")!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
+const ghosts = createQuestionGhosts(stage);
 let busy = false;
 let ball: Awaited<ReturnType<typeof createBall>> | undefined;
 createBall(stage)
@@ -53,6 +55,7 @@ async function submit() {
   status.className = "sr-only";
   status.textContent = "Turning it over…";
   ball?.setState("thinking");
+  ghosts.start(input.value.trim());
   try {
     const response = await fetch("/api/answer", {
       method: "POST",
@@ -68,6 +71,7 @@ async function submit() {
     status.textContent = "Couldn't get an answer. Try again.";
     ball?.setState("error");
   } finally {
+    ghosts.stop();
     busy = false;
     ask.disabled = false;
     input.readOnly = false;
