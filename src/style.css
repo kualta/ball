@@ -228,7 +228,7 @@ a:focus-visible {
     margin-bottom: 10px;
   }
   footer {
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 }
 
@@ -287,12 +287,13 @@ footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
-  font-size: 13px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  font-size: 12px;
+  line-height: 1;
   color: var(--text-muted);
 }
 footer span {
-  margin-right: 4px;
+  margin-right: 5px;
 }
 footer a {
   color: inherit;
@@ -309,8 +310,8 @@ footer a:hover {
 .social {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
 }
 @keyframes rise {
