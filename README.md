@@ -12,7 +12,7 @@ bun run build
 bun run start
 ```
 
-Open http://localhost:3000. Without a key, the interface explicitly offers classic random mode. It never presents random answers as Jev output. `bun run dev` restarts the server on edits; rebuild frontend edits with `bun run build`.
+Open http://localhost:3000. The interface is limited to the Ball header, the ball, and a bottom question field. A server key is required for questions; errors appear inline only when needed. The API retains explicit classic mode for development. `bun run dev` restarts the server on edits; rebuild frontend edits with `bun run build`.
 
 ## Validate
 
