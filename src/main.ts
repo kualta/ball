@@ -1,5 +1,5 @@
 import "@fontsource/dm-sans/400.css";
-import "@fontsource/manrope/800.css";
+import "@fontsource/manrope/500.css";
 import "./style.css";
 import { createBall } from "./ball";
 
