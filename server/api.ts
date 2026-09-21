@@ -45,6 +45,15 @@ export function jevRequest(question: string, model = "jev-latest") {
   };
 }
 
+class OracleError extends Error {
+  constructor(
+    public readonly reason: string,
+    public readonly upstreamStatus?: number,
+  ) {
+    super(reason);
+  }
+}
+
 export async function getAnswer(
   question: string,
   demo: boolean,
@@ -73,7 +82,7 @@ export async function getAnswer(
     signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok)
-    throw new Error("The oracle could not connect. Please try again.");
+    throw new OracleError("upstream_http_error", response.status);
   const payload = (await response.json()) as {
     answers?: {
       ball?: { type?: unknown; probabilities?: unknown; choice?: unknown };
@@ -84,8 +93,13 @@ export async function getAnswer(
     result?.type !== "choice" ||
     !ANSWERS.includes(result.choice as (typeof ANSWERS)[number])
   )
-    throw new Error("Invalid oracle response");
-  const probabilities = parseDistribution(result.probabilities);
+    throw new OracleError("invalid_response");
+  let probabilities;
+  try {
+    probabilities = parseDistribution(result.probabilities);
+  } catch {
+    throw new OracleError("invalid_distribution");
+  }
   return { answer: sampleAnswer(probabilities), probabilities, source: "jev" };
 }
 
@@ -181,7 +195,22 @@ export async function handleApiRequest(
         400,
       );
     }
-    if (!apiKey && input.demo !== true)
+    const requestId = crypto.randomUUID();
+    const started = Date.now();
+    const context = {
+      requestId,
+      question: input.question.trim(),
+      model: env.TYPESAFE_MODEL || "jev-latest",
+      mode: input.demo === true ? "demo" : "jev",
+    };
+    console.info({ event: "oracle_question", ...context });
+    if (!apiKey && input.demo !== true) {
+      console.error({
+        event: "oracle_failure",
+        requestId,
+        reason: "missing_api_key",
+        status: 503,
+      });
       return json(
         {
           error:
@@ -189,18 +218,44 @@ export async function handleApiRequest(
         },
         503,
       );
+    }
     inflight++;
     try {
-      return json(
-        await getAnswer(
-          input.question.trim(),
-          input.demo === true,
-          apiKey,
-          fetch,
-          env.TYPESAFE_MODEL || "jev-latest",
-        ),
+      const result = await getAnswer(
+        context.question,
+        input.demo === true,
+        apiKey,
+        fetch,
+        context.model,
       );
-    } catch {
+      console.info({
+        event: "oracle_answer",
+        requestId,
+        answer: result.answer,
+        source: result.source,
+        durationMs: Date.now() - started,
+        status: 200,
+      });
+      return json(result);
+    } catch (error) {
+      const reason =
+        error instanceof OracleError
+          ? error.reason
+          : error instanceof Error &&
+              ["TimeoutError", "AbortError"].includes(error.name)
+            ? "upstream_timeout"
+            : error instanceof SyntaxError
+              ? "invalid_json"
+              : "upstream_request_failed";
+      console.error({
+        event: "oracle_failure",
+        requestId,
+        reason,
+        upstreamStatus:
+          error instanceof OracleError ? error.upstreamStatus : undefined,
+        durationMs: Date.now() - started,
+        status: 502,
+      });
       return json(
         { error: "The oracle could not answer. Please try again." },
         502,
