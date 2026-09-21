@@ -1,12 +1,10 @@
 import { stepAnswerSettle, stepRotationSpring } from "./rotation-spring";
 import { createAtmosphere } from "./atmosphere";
 import { layoutAnswer } from "./answer-layout";
-import { smoothTo, smoothed } from "./smooth";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 type BallState = "idle" | "thinking" | "answer" | "error";
-const clamp01 = (value: number) => THREE.MathUtils.clamp(value, 0, 1);
 export async function createBall(container: HTMLElement) {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -23,10 +21,10 @@ export async function createBall(container: HTMLElement) {
   const scene = new THREE.Scene();
   const atmosphere = createAtmosphere();
   let typingImpulse = 0,
+    typingEnergy = 0,
     draftTarget = 0,
+    draftEnergy = 0,
     atmosphereTime = 0;
-  const typingEnergy = smoothed(),
-    draftEnergy = smoothed();
   scene.add(atmosphere.mesh);
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 30);
   camera.position.set(0, 0.12, 7.2);
@@ -146,10 +144,7 @@ export async function createBall(container: HTMLElement) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const faceFont = (size: number) => `700 ${size}px Manrope, Arial, sans-serif`;
-  let faceText = "";
   function writeAnswer(answer: string) {
-    faceText = answer;
     context.fillStyle = "#34334f";
     context.fillRect(0, 0, 512, 444);
     context.strokeStyle = "rgba(153,197,255,.2)";
@@ -161,7 +156,7 @@ export async function createBall(container: HTMLElement) {
     context.closePath();
     context.stroke();
     const layout = layoutAnswer(answer, (text, size) => {
-      context.font = faceFont(size);
+      context.font = `600 ${size}px Arial, sans-serif`;
       return context.measureText(text).width;
     });
     context.save();
@@ -171,21 +166,17 @@ export async function createBall(container: HTMLElement) {
     context.lineTo(256, 414);
     context.closePath();
     context.clip();
-    context.font = faceFont(layout.size);
+    context.font = `600 ${layout.size}px Arial, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillStyle = "#f0eff8";
-    context.shadowColor = "rgba(196,192,227,.6)";
-    context.shadowBlur = 4;
+    context.shadowColor = "#c4c0e3";
+    context.shadowBlur = 3;
     for (const line of layout.lines) context.fillText(line.text, 256, line.y);
     context.restore();
     texture.needsUpdate = true;
   }
   writeAnswer("ASK A QUESTION");
-  document.fonts
-    ?.load(faceFont(48))
-    .then(() => !disposed && writeAnswer(faceText))
-    .catch(() => {});
   const faceMaterial = new THREE.MeshBasicMaterial({ map: texture });
   const dieMesh = new THREE.Mesh(geometry, [
     faceMaterial,
@@ -226,9 +217,6 @@ export async function createBall(container: HTMLElement) {
   glassRim.position.z = 1.37;
   ball.add(glassRim);
   let disposed = false;
-  let revealed = false,
-    modelSettled = false;
-  const revealTimeout = setTimeout(() => (modelSettled = true), 2500);
   new GLTFLoader().load(
     "/models/ball.glb",
     (gltf) => {
@@ -248,31 +236,23 @@ export async function createBall(container: HTMLElement) {
       });
       fallback.visible = false;
       ball.add(gltf.scene);
-      modelSettled = true;
     },
     undefined,
-    () => (modelSettled = true),
+    () => {},
   );
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   let state: BallState = "idle",
     frame = 0,
     last = performance.now(),
-    elapsed = 0;
-  const energy = smoothed(),
-    rotationEnergy = smoothed(),
-    thinkingMix = smoothed(),
-    spinSpeed = smoothed();
+    elapsed = 0,
+    energy = 0;
   const target = new THREE.Quaternion();
-  const dieOffset = new THREE.Quaternion();
-  const dieVelocity = new THREE.Vector3();
   const spinEuler = new THREE.Euler();
   let spin = 0;
-  let wasThinking = false,
-    settlingAnswer = false,
-    settleElapsed = 0,
-    pendingText: string | null = null,
-    launchSpeed = 0;
-  const launchAxis = new THREE.Vector3();
+  let settling = false;
+  let settleElapsed = 0;
+  let rotationEnergy = 0;
+  const launchVelocity = new THREE.Vector3();
   const previousRotation = new THREE.Quaternion();
   let pointerId: number | null = null;
   let lastX = 0,
@@ -318,13 +298,12 @@ export async function createBall(container: HTMLElement) {
     event.preventDefault();
     pointerId = event.pointerId;
     coastRemaining = 0;
-    settlingAnswer = false;
+    settling = false;
     lastX = event.clientX;
     lastY = event.clientY;
     pointerTime = event.timeStamp;
     angularVelocity.set(0, 0);
     springVelocity.set(0, 0, 0);
-    spinSpeed.value = spinSpeed.velocity = 0;
     container.setPointerCapture(event.pointerId);
     container.dataset.dragging = "true";
     container.dataset.pointerFocus = "true";
@@ -410,43 +389,33 @@ export async function createBall(container: HTMLElement) {
       last = now;
       return;
     }
-    if (reduced.matches && now - last < 100) return;
-    const dt = Math.min((now - last) / 1000, 0.1);
-    if (dt <= 0) return;
+    if (
+      now - last <
+      (reduced.matches
+        ? 100
+        : state === "thinking" ||
+            settling ||
+            pointerId !== null ||
+            disturbance > 0.05
+          ? 16
+          : 32)
+    )
+      return;
+    const dt = Math.min((now - last) / 1000, 0.12);
     last = now;
     elapsed += dt;
-    // A new answer is written only once the die has sunk out of sight.
-    if (pendingText !== null && (thinkingMix.value > 0.8 || reduced.matches)) {
-      writeAnswer(pendingText);
-      pendingText = null;
-    }
-    const thinking = state === "thinking" || pendingText !== null;
-    if (thinking !== wasThinking) {
-      wasThinking = thinking;
-      if (thinking) spin = 0;
-      else {
-        // Carry the spin's momentum into the settle instead of stopping it dead.
-        if (pointerId === null)
-          springVelocity.copy(launchAxis).multiplyScalar(spinSpeed.value);
-        spinSpeed.value = spinSpeed.velocity = 0;
-        launchSpeed = 0;
-        coastRemaining = 0;
-        settleElapsed = 0;
-        settlingAnswer = pointerId === null;
-      }
-    }
+    const thinking = state === "thinking";
     if (pointerId === null) {
       if (reduced.matches) {
         handRotation.quaternion.identity();
         springVelocity.set(0, 0, 0);
       } else if (thinking) {
-        const speed = smoothTo(spinSpeed, launchSpeed, 3.5, dt);
-        if (speed > 1e-4) {
-          dragRotation.setFromAxisAngle(launchAxis, speed * dt);
-          handRotation.quaternion.premultiply(dragRotation).normalize();
-          internalLag.premultiply(dragRotation.clone().invert()).normalize();
-        }
-      } else if (settlingAnswer) {
+        const speed = launchVelocity.length();
+        dragAxis.copy(launchVelocity).divideScalar(speed);
+        dragRotation.setFromAxisAngle(dragAxis, speed * dt);
+        handRotation.quaternion.premultiply(dragRotation).normalize();
+        internalLag.premultiply(dragRotation.clone().invert()).normalize();
+      } else if (settling) {
         stepAnswerSettle(
           handRotation.quaternion,
           springVelocity,
@@ -454,7 +423,7 @@ export async function createBall(container: HTMLElement) {
           dt,
         );
         settleElapsed += dt;
-        settlingAnswer =
+        settling =
           springVelocity.lengthSq() > 1e-7 ||
           handRotation.quaternion.angleTo(restRotation) > 0.0001;
       } else if (coastRemaining > 0) {
@@ -473,80 +442,65 @@ export async function createBall(container: HTMLElement) {
     const rotationSpeed =
       previousRotation.angleTo(handRotation.quaternion) / dt;
     previousRotation.copy(handRotation.quaternion);
-    smoothTo(
+    rotationEnergy = THREE.MathUtils.damp(
       rotationEnergy,
-      reduced.matches ? 0 : Math.min(1, rotationSpeed / 6),
-      4,
+      reduced.matches ? 0 : Math.min(1, rotationSpeed / 9),
+      6,
       dt,
     );
     disturbance *= Math.exp(-dt * 2);
     slosh.multiplyScalar(Math.exp(-dt * 2.2));
     internalLag.slerp(restRotation, 1 - Math.exp(-dt * 1.7));
     fluidMaterial.uniforms.uSlosh.value.copy(slosh);
-    smoothTo(energy, thinking ? 1 : disturbance, 3, dt);
+    energy = THREE.MathUtils.damp(energy, thinking ? 1 : disturbance, 3, dt);
     typingImpulse *= Math.exp(-dt * 1.6);
-    smoothTo(typingEnergy, thinking ? 0 : typingImpulse, 6, dt);
-    smoothTo(draftEnergy, draftTarget, 3, dt);
-    if (reduced.matches) {
-      thinkingMix.value = Number(thinking);
-      thinkingMix.velocity = 0;
-    } else smoothTo(thinkingMix, Number(thinking), 5, dt);
-    const mix = clamp01(thinkingMix.value);
-    const rotationLevel = clamp01(rotationEnergy.value),
-      typingLevel = clamp01(typingEnergy.value),
-      draftLevel = clamp01(draftEnergy.value);
+    typingEnergy = THREE.MathUtils.damp(
+      typingEnergy,
+      thinking ? 0 : typingImpulse,
+      7,
+      dt,
+    );
+    draftEnergy = THREE.MathUtils.damp(draftEnergy, draftTarget, 3, dt);
     if (!reduced.matches)
-      atmosphereTime += dt * (0.3 + typingLevel * 0.7 + rotationLevel * 1.6);
+      atmosphereTime += dt * (0.3 + typingEnergy * 0.7 + rotationEnergy * 1.6);
     atmosphere.update(
       reduced.matches ? 0 : atmosphereTime,
       camera.aspect,
-      reduced.matches ? 0 : rotationLevel,
-      reduced.matches ? 0 : typingLevel,
-      reduced.matches ? 0 : draftLevel,
+      reduced.matches ? 0 : rotationEnergy,
+      reduced.matches ? 0 : typingEnergy,
+      reduced.matches ? 0 : draftEnergy,
     );
     fluidMaterial.uniforms.uTime.value = reduced.matches ? 0 : elapsed;
-    fluidMaterial.uniforms.uEnergy.value = reduced.matches
-      ? 0
-      : clamp01(energy.value);
-    // The answer dims as the die sinks into the fluid and brightens as it surfaces.
-    const faceLevel = 1 - THREE.MathUtils.smoothstep(mix, 0.3, 0.8);
-    faceMaterial.color.setScalar(faceLevel ** 2.2);
+    fluidMaterial.uniforms.uEnergy.value = reduced.matches ? 0 : energy;
     if (!reduced.matches) {
-      spin += dt * (0.12 + mix * 2.68);
-      if (thinking)
+      spin += dt * (thinking ? 2.8 : 0.12);
+      if (thinking) {
         spinEuler.set(Math.sin(spin * 0.7) * 0.8, spin, Math.sin(spin) * 0.3);
-      else
+        target.setFromEuler(spinEuler);
+      } else {
         spinEuler.set(
           Math.sin(elapsed * 0.55) * 0.022,
           Math.sin(elapsed * 0.4) * 0.03,
           Math.sin(elapsed * 0.6) * 0.025,
         );
-      target.setFromEuler(spinEuler).premultiply(internalLag);
-      // Spring the die toward its target so it keeps momentum between states.
-      dieOffset.copy(target).invert().premultiply(die.quaternion);
-      stepRotationSpring(dieOffset, dieVelocity, dt, 36, 10.5);
-      die.quaternion.copy(dieOffset).multiply(target);
+        target.setFromEuler(spinEuler);
+      }
+      target.premultiply(internalLag);
+      die.quaternion.slerp(target, 1 - Math.exp(-dt * (thinking ? 5 : 3.2)));
       die.position.z = THREE.MathUtils.damp(
         die.position.z,
-        THREE.MathUtils.lerp(
-          0.56 - disturbance * 0.26 + Math.sin(elapsed * 0.8) * 0.008,
-          0.08,
-          mix,
-        ),
-        6,
+        thinking
+          ? 0.08
+          : 0.56 - disturbance * 0.26 + Math.sin(elapsed * 0.8) * 0.008,
+        3,
         dt,
       );
     } else {
       die.quaternion.copy(internalLag);
-      dieVelocity.set(0, 0, 0);
       die.position.z = 0.56;
       ball.rotation.set(0, 0, 0);
     }
     renderer.render(scene, camera);
-    if (!revealed && modelSettled) {
-      revealed = true;
-      container.dataset.ready = "true";
-    }
   }
   frame = requestAnimationFrame(render);
   const lost = (event: Event) => {
@@ -560,28 +514,34 @@ export async function createBall(container: HTMLElement) {
       draftTarget = Math.min(1, length / 120);
     },
     setState(next: BallState, answer?: string) {
+      if (next === "thinking" && state !== "thinking") {
+        const azimuth = Math.random() * Math.PI * 2;
+        const tilt = (Math.random() - 0.5) * 0.9;
+        launchVelocity
+          .set(Math.cos(azimuth), Math.sin(azimuth), tilt)
+          .normalize()
+          .multiplyScalar(5 + Math.random() * 7);
+        settling = false;
+      }
       if (next === "thinking") {
-        if (state !== "thinking") {
-          const azimuth = Math.random() * Math.PI * 2;
-          const tilt = (Math.random() - 0.5) * 0.9;
-          launchAxis
-            .set(Math.cos(azimuth), Math.sin(azimuth), tilt)
-            .normalize();
-          launchSpeed = 3.5 + Math.random() * 2;
-          settlingAnswer = false;
-        }
         coastRemaining = 0;
         angularVelocity.set(0, 0);
         springVelocity.set(0, 0, 0);
       }
+      if (state === "thinking" && next !== "thinking") {
+        if (pointerId === null) springVelocity.copy(launchVelocity);
+        coastRemaining = 0;
+        settleElapsed = 0;
+        settling = pointerId === null;
+      }
       state = next;
-      if (answer) pendingText = answer;
-      else if (next === "error") pendingText = "ASK AGAIN LATER";
+      if (answer) writeAnswer(answer);
+      else if (next === "thinking") writeAnswer("");
+      else if (next === "error") writeAnswer("ASK AGAIN LATER");
     },
     dispose() {
       disposed = true;
       cancelAnimationFrame(frame);
-      clearTimeout(revealTimeout);
       observer.disconnect();
       container.removeEventListener("pointerdown", pointerDown);
       container.removeEventListener("pointermove", pointerMove);
