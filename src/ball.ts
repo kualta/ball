@@ -65,7 +65,9 @@ export async function createBall(container: HTMLElement) {
   shadow.position.set(0, -1.68, -0.5);
   scene.add(shadow);
   const ball = new THREE.Group();
-  scene.add(ball);
+  const handRotation = new THREE.Group();
+  handRotation.add(ball);
+  scene.add(handRotation);
   const shellMaterial = new THREE.MeshPhysicalMaterial({
     color: 0x080a0e,
     roughness: 0.19,
@@ -199,10 +201,14 @@ export async function createBall(container: HTMLElement) {
   const fluidMaterial = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    uniforms: { uTime: { value: 0 }, uEnergy: { value: 0 } },
+    uniforms: {
+      uTime: { value: 0 },
+      uEnergy: { value: 0 },
+      uSlosh: { value: new THREE.Vector2() },
+    },
     vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader: `varying vec2 vUv; uniform float uTime; uniform float uEnergy;
-    void main(){vec2 p=(vUv-.5)*2.;float r=length(p);float edge=smoothstep(.45,1.,r);float ripple=sin(r*24.-uTime*1.7+sin(p.x*8.+uTime)*.5)*.5+.5;float wave=sin(p.x*8.+p.y*11.+uTime*1.2)*sin(p.y*13.-uTime*.9);vec3 col=mix(vec3(.018,.055,.20),vec3(.025,.19,.55),edge*.7+ripple*.12);float alpha=.10+edge*.70+uEnergy*(.09+wave*.035);float glint=pow(max(0.,1.-abs(r-.91)*35.),2.)*.21;col+=vec3(.19,.37,.62)*glint;gl_FragColor=vec4(col,alpha);}`,
+    fragmentShader: `varying vec2 vUv; uniform float uTime; uniform float uEnergy; uniform vec2 uSlosh;
+    void main(){vec2 p=(vUv-.5)*2.; p += uSlosh * sin(uTime * 3.);float r=length(p);float edge=smoothstep(.45,1.,r);float ripple=sin(r*24.-uTime*1.7+sin(p.x*8.+uTime)*.5)*.5+.5;float wave=sin(p.x*8.+p.y*11.+uTime*1.2)*sin(p.y*13.-uTime*.9);vec3 col=mix(vec3(.018,.055,.20),vec3(.025,.19,.55),edge*.7+ripple*.12);float alpha=.10+edge*.70+uEnergy*(.09+wave*.035);float glint=pow(max(0.,1.-abs(r-.91)*35.),2.)*.21;col+=vec3(.19,.37,.62)*glint;gl_FragColor=vec4(col,alpha);}`,
   });
   const fluid = new THREE.Mesh(
     new THREE.CircleGeometry(0.825, 96),
@@ -254,6 +260,104 @@ export async function createBall(container: HTMLElement) {
   const spinEuler = new THREE.Euler();
   let spin = 0,
     thinkingStart = 0;
+  let pointerId: number | null = null;
+  let lastX = 0,
+    lastY = 0,
+    pointerTime = 0;
+  const angularVelocity = new THREE.Vector2();
+  const slosh = new THREE.Vector2();
+  const internalLag = new THREE.Quaternion();
+  const dragRotation = new THREE.Quaternion();
+  const dragAxis = new THREE.Vector3();
+  const restRotation = new THREE.Quaternion();
+  let disturbance = 0;
+  function rotateFromDrag(dx: number, dy: number) {
+    const distance = Math.hypot(dx, dy);
+    if (!distance) return;
+    dragAxis.set(dy, dx, 0).normalize();
+    dragRotation.setFromAxisAngle(dragAxis, distance);
+    handRotation.quaternion.premultiply(dragRotation).normalize();
+    internalLag.premultiply(dragRotation.clone().invert()).normalize();
+    slosh.x = THREE.MathUtils.clamp(slosh.x + dx * 0.35, -0.18, 0.18);
+    slosh.y = THREE.MathUtils.clamp(slosh.y + dy * 0.35, -0.18, 0.18);
+    disturbance = Math.min(1, disturbance + distance * 2);
+  }
+  function pointerDown(event: PointerEvent) {
+    if (pointerId !== null || !event.isPrimary || event.button !== 0) return;
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(
+      new THREE.Vector2(
+        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+        (-(event.clientY - bounds.top) / bounds.height) * 2 + 1,
+      ),
+      camera,
+    );
+    if (
+      !raycaster.ray.intersectsSphere(
+        new THREE.Sphere(new THREE.Vector3(), 1.65),
+      )
+    )
+      return;
+    event.preventDefault();
+    pointerId = event.pointerId;
+    lastX = event.clientX;
+    lastY = event.clientY;
+    pointerTime = event.timeStamp;
+    angularVelocity.set(0, 0);
+    container.setPointerCapture(event.pointerId);
+    container.dataset.dragging = "true";
+    container.dataset.pointerFocus = "true";
+    container.focus({ preventScroll: true });
+  }
+  function pointerMove(event: PointerEvent) {
+    if (event.pointerId !== pointerId) return;
+    const scale = 5 / Math.min(container.clientWidth, container.clientHeight);
+    const dx = (event.clientX - lastX) * scale;
+    const dy = (event.clientY - lastY) * scale;
+    const dt = Math.max(0.008, (event.timeStamp - pointerTime) / 1000);
+    rotateFromDrag(dx, dy);
+    angularVelocity.set(
+      THREE.MathUtils.clamp(dx / dt, -5, 5),
+      THREE.MathUtils.clamp(dy / dt, -5, 5),
+    );
+    lastX = event.clientX;
+    lastY = event.clientY;
+    pointerTime = event.timeStamp;
+  }
+  function pointerEnd(event: PointerEvent) {
+    if (event.pointerId !== pointerId) return;
+    if (event.type !== "pointerup" || event.timeStamp - pointerTime > 100)
+      angularVelocity.set(0, 0);
+    pointerId = null;
+    delete container.dataset.dragging;
+    if (container.hasPointerCapture(event.pointerId))
+      container.releasePointerCapture(event.pointerId);
+  }
+  function keyboardRotate(event: KeyboardEvent) {
+    delete container.dataset.pointerFocus;
+    const directions: Record<string, [number, number]> = {
+      ArrowLeft: [-0.2, 0],
+      ArrowRight: [0.2, 0],
+      ArrowUp: [0, -0.2],
+      ArrowDown: [0, 0.2],
+    };
+    if (event.key === "Home") {
+      event.preventDefault();
+      handRotation.quaternion.identity();
+      angularVelocity.set(0, 0);
+    } else if (directions[event.key]) {
+      event.preventDefault();
+      rotateFromDrag(...directions[event.key]);
+      angularVelocity.set(0, 0);
+    }
+  }
+  container.addEventListener("pointerdown", pointerDown);
+  container.addEventListener("pointermove", pointerMove);
+  container.addEventListener("pointerup", pointerEnd);
+  container.addEventListener("pointercancel", pointerEnd);
+  container.addEventListener("lostpointercapture", pointerEnd);
+  container.addEventListener("keydown", keyboardRotate);
   function resize() {
     const width = container.clientWidth,
       height = container.clientHeight;
@@ -273,13 +377,31 @@ export async function createBall(container: HTMLElement) {
       last = now;
       return;
     }
-    if (now - last < (reduced.matches ? 100 : state === "thinking" ? 16 : 32))
+    if (
+      now - last <
+      (reduced.matches
+        ? 100
+        : state === "thinking" || pointerId !== null || disturbance > 0.05
+          ? 16
+          : 32)
+    )
       return;
     const dt = Math.min((now - last) / 1000, 0.12);
     last = now;
     elapsed += dt;
     const thinking = state === "thinking";
-    energy = THREE.MathUtils.damp(energy, thinking ? 1 : 0, 3, dt);
+    if (pointerId === null && !reduced.matches) {
+      rotateFromDrag(angularVelocity.x * dt, angularVelocity.y * dt);
+      angularVelocity.multiplyScalar(Math.exp(-dt * 4));
+    }
+    if (reduced.matches) angularVelocity.set(0, 0);
+    disturbance *= Math.exp(-dt * 2);
+    slosh.multiplyScalar(Math.exp(-dt * 2.2));
+    internalLag.slerp(restRotation, 1 - Math.exp(-dt * 1.7));
+    if (thinking && pointerId === null)
+      handRotation.quaternion.slerp(restRotation, 1 - Math.exp(-dt * 3));
+    fluidMaterial.uniforms.uSlosh.value.copy(slosh);
+    energy = THREE.MathUtils.damp(energy, thinking ? 1 : disturbance, 3, dt);
     fluidMaterial.uniforms.uTime.value = elapsed;
     fluidMaterial.uniforms.uEnergy.value = reduced.matches ? 0 : energy;
     if (!reduced.matches) {
@@ -295,10 +417,13 @@ export async function createBall(container: HTMLElement) {
         );
         target.setFromEuler(spinEuler);
       }
+      target.premultiply(internalLag);
       die.quaternion.slerp(target, 1 - Math.exp(-dt * (thinking ? 5 : 3.2)));
       die.position.z = THREE.MathUtils.damp(
         die.position.z,
-        thinking ? 0.08 : 0.56 + Math.sin(elapsed * 0.8) * 0.008,
+        thinking
+          ? 0.08
+          : 0.56 - disturbance * 0.26 + Math.sin(elapsed * 0.8) * 0.008,
         3,
         dt,
       );
@@ -315,7 +440,7 @@ export async function createBall(container: HTMLElement) {
           dt,
         );
     } else {
-      die.quaternion.identity();
+      die.quaternion.copy(internalLag);
       die.position.z = 0.56;
       ball.rotation.set(0, 0, 0);
     }
@@ -333,6 +458,7 @@ export async function createBall(container: HTMLElement) {
         thinkingStart = elapsed;
         ball.rotation.y = 0;
       }
+      if (next === "thinking") angularVelocity.set(0, 0);
       state = next;
       if (answer) writeAnswer(answer);
       else if (next === "thinking") writeAnswer("");
@@ -342,6 +468,16 @@ export async function createBall(container: HTMLElement) {
       disposed = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
+      container.removeEventListener("pointerdown", pointerDown);
+      container.removeEventListener("pointermove", pointerMove);
+      container.removeEventListener("pointerup", pointerEnd);
+      container.removeEventListener("pointercancel", pointerEnd);
+      container.removeEventListener("lostpointercapture", pointerEnd);
+      container.removeEventListener("keydown", keyboardRotate);
+      if (pointerId !== null && container.hasPointerCapture(pointerId))
+        container.releasePointerCapture(pointerId);
+      delete container.dataset.dragging;
+      delete container.dataset.pointerFocus;
       renderer.domElement.removeEventListener("webglcontextlost", lost);
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh) {
