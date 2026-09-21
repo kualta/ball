@@ -1,3 +1,4 @@
+import { createAtmosphere } from "./atmosphere";
 import { layoutAnswer } from "./answer-layout";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -17,6 +18,8 @@ export async function createBall(container: HTMLElement) {
   renderer.domElement.setAttribute("aria-hidden", "true");
   container.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
+  const atmosphere = createAtmosphere();
+  scene.add(atmosphere.mesh);
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 30);
   camera.position.set(0, 0.12, 7.2);
   camera.lookAt(0, 0, 0);
@@ -136,7 +139,7 @@ export async function createBall(container: HTMLElement) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   function writeAnswer(answer: string) {
-    context.fillStyle = "#362076";
+    context.fillStyle = "#34334f";
     context.fillRect(0, 0, 512, 444);
     context.strokeStyle = "rgba(153,197,255,.2)";
     context.lineWidth = 3;
@@ -160,8 +163,8 @@ export async function createBall(container: HTMLElement) {
     context.font = `600 ${layout.size}px Arial, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillStyle = "#f4edff";
-    context.shadowColor = "#af8dff";
+    context.fillStyle = "#f0eff8";
+    context.shadowColor = "#c4c0e3";
     context.shadowBlur = 3;
     for (const line of layout.lines) context.fillText(line.text, 256, line.y);
     context.restore();
@@ -189,7 +192,7 @@ export async function createBall(container: HTMLElement) {
     },
     vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader: `varying vec2 vUv; uniform float uTime; uniform float uEnergy; uniform vec2 uSlosh;
-    void main(){vec2 p=(vUv-.5)*2.; p += uSlosh * sin(uTime * 3.);float r=length(p);float edge=smoothstep(.45,1.,r);float ripple=sin(r*24.-uTime*1.7+sin(p.x*8.+uTime)*.5)*.5+.5;float wave=sin(p.x*8.+p.y*11.+uTime*1.2)*sin(p.y*13.-uTime*.9);vec3 col=mix(vec3(.018,.055,.20),vec3(.025,.19,.55),edge*.7+ripple*.12);float alpha=.10+edge*.70+uEnergy*(.09+wave*.035);float glint=pow(max(0.,1.-abs(r-.91)*35.),2.)*.21;col+=vec3(.19,.37,.62)*glint;gl_FragColor=vec4(col,alpha);}`,
+    void main(){vec2 p=(vUv-.5)*2.; p += uSlosh * sin(uTime * 3.);float r=length(p);float edge=smoothstep(.45,1.,r);float ripple=sin(r*24.-uTime*1.7+sin(p.x*8.+uTime)*.5)*.5+.5;float wave=sin(p.x*8.+p.y*11.+uTime*1.2)*sin(p.y*13.-uTime*.9);vec3 col=mix(vec3(.035,.039,.09),vec3(.13,.14,.25),edge*.7+ripple*.12);float alpha=.10+edge*.70+uEnergy*(.09+wave*.035);float glint=pow(max(0.,1.-abs(r-.91)*35.),2.)*.21;col+=vec3(.30,.30,.43)*glint;gl_FragColor=vec4(col,alpha);}`,
   });
   const fluid = new THREE.Mesh(
     new THREE.CircleGeometry(0.825, 96),
@@ -200,7 +203,7 @@ export async function createBall(container: HTMLElement) {
   const glassRim = new THREE.Mesh(
     new THREE.TorusGeometry(0.807, 0.011, 8, 96),
     new THREE.MeshBasicMaterial({
-      color: 0x9370df,
+      color: 0x8886aa,
       transparent: true,
       opacity: 0.4,
     }),
@@ -383,7 +386,12 @@ export async function createBall(container: HTMLElement) {
       handRotation.quaternion.slerp(restRotation, 1 - Math.exp(-dt * 3));
     fluidMaterial.uniforms.uSlosh.value.copy(slosh);
     energy = THREE.MathUtils.damp(energy, thinking ? 1 : disturbance, 3, dt);
-    fluidMaterial.uniforms.uTime.value = elapsed;
+    atmosphere.update(
+      reduced.matches ? 0 : elapsed,
+      camera.aspect,
+      reduced.matches ? 0 : energy,
+    );
+    fluidMaterial.uniforms.uTime.value = reduced.matches ? 0 : elapsed;
     fluidMaterial.uniforms.uEnergy.value = reduced.matches ? 0 : energy;
     if (!reduced.matches) {
       spin += dt * (thinking ? 2.8 : 0.12);

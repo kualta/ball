@@ -26,3 +26,5 @@ The model is in `public/models/ball.glb`. Rendering uses WebGL2, capped device p
 See [API research](README-api.md) for the documented Jev contract, probability interpretation, security limits, and integration tests. Probabilities describe the model's choice of response; they do not establish the actual likelihood of future events.
 
 Drag the ball in any direction to rotate it; the die and liquid respond with damped motion. Arrow keys rotate the focused ball and Home resets the view. Submitting a question returns the window toward you. Reduced-motion settings disable automatic spin and release inertia while preserving direct manipulation.
+
+Visual direction references the free [shadcn shader gallery](https://www.shadcn.io/shaders), especially smooth noise contours. The atmosphere shader in `src/atmosphere.ts` is original code, shared under MIT (see `SHADERS-LICENSE`); no external shader assets or new runtime dependencies are required. It shares the ball renderer, pauses when hidden, and freezes with reduced motion.
