@@ -24,7 +24,6 @@ export function createAtmosphere() {
         vec2 p = (uvScreen - .5) * vec2(aspect, 1.);
         float motion = smoothstep(.025, .8, clamp(energy, 0., 1.));
         float disturbance = clamp(typing, 0., 1.);
-        float radius = length(p);
         float edge = smoothstep(0., .17, min(uvScreen.y, 1. - uvScreen.y));
         float horizontalBend = sin(p.x * 2.5 - time * .24) * .035;
         horizontalBend += sin(p.x * 4.2 + time * .18) * .016;
@@ -33,20 +32,20 @@ export function createAtmosphere() {
           sin(p.x * 19. + time * 2.9) * .015
         );
         horizontalBend += draft * sin(p.x * 5. - time * .4) * .012;
-        float horizontalDistance = p.y - horizontalBend;
-        float horizontalEnvelope = exp(-pow(horizontalDistance * 7., 2.));
-        float horizontalPhase = horizontalDistance * 150. + sin(p.x * 3. - time * .3) * .7;
-        float horizontalLines = pow(.5 + .5 * cos(horizontalPhase), 12.);
-        float horizontalMist = exp(-pow(horizontalDistance * 4.8, 2.));
-
-        float radialWarp = sin(p.x * 7. + p.y * 5. - time * .8) * disturbance * .012;
-        float radialPhase = (radius + radialWarp) * 100. - time * 4.5;
-        float radialLines = pow(.5 + .5 * cos(radialPhase), 13.);
-        float radialEnvelope = smoothstep(.12, .29, radius) * exp(-radius * radius * 1.8);
-        float radialMist = exp(-pow((radius - .38) * 3., 2.));
-
-        float lines = mix(horizontalLines * horizontalEnvelope, radialLines * radialEnvelope, motion);
-        float mist = mix(horizontalMist, radialMist * .65, motion);
+        // A circle whose center recedes to infinity becomes a straight wave.
+        float centerOffset = .6 * pow(1. - motion, 2.) / max(motion, .0001);
+        vec2 wavePoint = vec2(p.x, p.y - horizontalBend * (1. - motion));
+        float shiftedRadius = length(wavePoint + vec2(0., centerOffset));
+        float distance = (dot(wavePoint, wavePoint) + 2. * centerOffset * wavePoint.y)
+          / max(shiftedRadius + centerOffset, .0001);
+        float swirl = sin(p.x * 8. + sin(p.y * 6. + time * .7) - time * .6);
+        swirl += .55 * sin(p.y * 14. - p.x * 5. + time * 1.1);
+        swirl += .3 * sin(p.x * 21. + p.y * 17. - time * 1.4);
+        distance += swirl * motion * (.019 + disturbance * .012);
+        float phase = distance * 110. - time * 4.5;
+        float envelope = exp(-pow((distance - motion * .32) * mix(7., 1.8, motion), 2.));
+        float lines = pow(.5 + .5 * cos(phase), 12.) * envelope;
+        float mist = exp(-pow((distance - motion * .32) * mix(4.8, 2., motion), 2.));
         float activity = max(disturbance * .6, motion);
         vec3 base = vec3(.022, .023, .033);
         vec3 violet = mix(vec3(.13, .115, .21), vec3(.20, .15, .32), activity);

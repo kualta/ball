@@ -2,6 +2,16 @@
   <title id="title">8 Ball</title>
   <desc id="desc">A simple black orb with a violet triangular window beside the words 8 Ball.</desc>
   <rect width="1200" height="630" fill="#09090d"/>
+  <g fill="none" stroke="#6e5c92" stroke-width="1.5" opacity=".2">
+    <path d="M0 250C210 218 370 280 600 250S990 222 1200 254"/>
+    <path d="M0 274C210 242 370 304 600 274S990 246 1200 278"/>
+    <path d="M0 298C210 266 370 328 600 298S990 270 1200 302"/>
+    <path d="M0 322C210 290 370 352 600 322S990 294 1200 326"/>
+    <path d="M0 346C210 314 370 376 600 346S990 318 1200 350"/>
+    <path d="M0 370C210 338 370 400 600 370S990 342 1200 374"/>
+    <path d="M0 394C210 362 370 424 600 394S990 366 1200 398"/>
+    <path d="M0 418C210 386 370 448 600 418S990 390 1200 422"/>
+  </g>
   <text x="112" y="347" fill="#e6e3ed" font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="500" letter-spacing="-4">8 Ball</text>
   <circle cx="870" cy="315" r="191" fill="#0e0d14" stroke="#24202f" stroke-width="2"/>
   <circle cx="870" cy="315" r="116" fill="#141020" stroke="#3a304c" stroke-width="2"/>

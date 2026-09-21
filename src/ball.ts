@@ -1,4 +1,4 @@
-import { stepRotationSpring } from "./rotation-spring";
+import { stepAnswerSettle, stepRotationSpring } from "./rotation-spring";
 import { createAtmosphere } from "./atmosphere";
 import { layoutAnswer } from "./answer-layout";
 import * as THREE from "three";
@@ -250,6 +250,7 @@ export async function createBall(container: HTMLElement) {
   const spinEuler = new THREE.Euler();
   let spin = 0;
   let settling = false;
+  let settleElapsed = 0;
   let rotationEnergy = 0;
   const launchVelocity = new THREE.Vector3();
   const previousRotation = new THREE.Quaternion();
@@ -392,7 +393,10 @@ export async function createBall(container: HTMLElement) {
       now - last <
       (reduced.matches
         ? 100
-        : state === "thinking" || pointerId !== null || disturbance > 0.05
+        : state === "thinking" ||
+            settling ||
+            pointerId !== null ||
+            disturbance > 0.05
           ? 16
           : 32)
     )
@@ -412,11 +416,16 @@ export async function createBall(container: HTMLElement) {
         handRotation.quaternion.premultiply(dragRotation).normalize();
         internalLag.premultiply(dragRotation.clone().invert()).normalize();
       } else if (settling) {
-        handRotation.quaternion.slerp(restRotation, 1 - Math.exp(-dt * 16));
-        if (handRotation.quaternion.angleTo(restRotation) < 0.002) {
-          handRotation.quaternion.identity();
-          settling = false;
-        }
+        stepAnswerSettle(
+          handRotation.quaternion,
+          springVelocity,
+          settleElapsed,
+          dt,
+        );
+        settleElapsed += dt;
+        settling =
+          springVelocity.lengthSq() > 1e-7 ||
+          handRotation.quaternion.angleTo(restRotation) > 0.0001;
       } else if (coastRemaining > 0) {
         const speed = springVelocity.length();
         if (speed > 0.001) {
@@ -520,10 +529,10 @@ export async function createBall(container: HTMLElement) {
         springVelocity.set(0, 0, 0);
       }
       if (state === "thinking" && next !== "thinking") {
-        launchVelocity.set(0, 0, 0);
-        springVelocity.set(0, 0, 0);
+        if (pointerId === null) springVelocity.copy(launchVelocity);
         coastRemaining = 0;
-        settling = true;
+        settleElapsed = 0;
+        settling = pointerId === null;
       }
       state = next;
       if (answer) writeAnswer(answer);
