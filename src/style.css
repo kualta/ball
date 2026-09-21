@@ -200,8 +200,6 @@ a:focus-visible {
 #stage[data-dragging="true"] {
   cursor: grabbing;
 }
-#stage:focus-visible:not([data-pointer-focus]) {
-  outline: 1px solid #af7fea55;
-  outline-offset: -8px;
-  border-radius: 24px;
+#stage:focus {
+  outline: none;
 }

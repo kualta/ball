@@ -1,7 +1,6 @@
 import { layoutAnswer } from "./answer-layout";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 type BallState = "idle" | "thinking" | "answer" | "error";
 export async function createBall(container: HTMLElement) {
@@ -21,21 +20,10 @@ export async function createBall(container: HTMLElement) {
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 30);
   camera.position.set(0, 0.12, 7.2);
   camera.lookAt(0, 0, 0);
-  const environment = new RoomEnvironment();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = pmrem.fromScene(environment, 0.025);
-  scene.environment = env.texture;
-  environment.dispose();
-  pmrem.dispose();
-  const key = new THREE.DirectionalLight(0xddd0ff, 2.4);
-  key.position.set(-3, 5, 5);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0x9b65ff, 3);
-  fill.position.set(4, 1, 2);
-  scene.add(fill);
-  const blue = new THREE.PointLight(0x356cff, 1.5, 3);
-  blue.position.set(0, 0, 1.55);
-  scene.add(blue);
+  scene.add(new THREE.HemisphereLight(0xd8d2e3, 0x17121e, 2));
+  const daylight = new THREE.DirectionalLight(0xffffff, 1.2);
+  daylight.position.set(-3, 5, 4);
+  scene.add(daylight);
   const shadowCanvas = document.createElement("canvas");
   shadowCanvas.width = 256;
   shadowCanvas.height = 256;
@@ -68,14 +56,7 @@ export async function createBall(container: HTMLElement) {
   const handRotation = new THREE.Group();
   handRotation.add(ball);
   scene.add(handRotation);
-  const shellMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x080a0e,
-    roughness: 0.19,
-    metalness: 0.08,
-    clearcoat: 1,
-    clearcoatRoughness: 0.09,
-    envMapIntensity: 1.2,
-  });
+  const shellMaterial = new THREE.MeshLambertMaterial({ color: 0x19171d });
   const fallback = new THREE.Group();
   const shell = new THREE.Mesh(
     new THREE.SphereGeometry(
@@ -490,7 +471,6 @@ export async function createBall(container: HTMLElement) {
       });
       texture.dispose();
       shadowTexture.dispose();
-      env.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },
