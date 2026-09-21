@@ -248,8 +248,11 @@ export async function createBall(container: HTMLElement) {
     energy = 0;
   const target = new THREE.Quaternion();
   const spinEuler = new THREE.Euler();
-  let spin = 0,
-    thinkingStart = 0;
+  let spin = 0;
+  let settling = false;
+  let rotationEnergy = 0;
+  const launchVelocity = new THREE.Vector3();
+  const previousRotation = new THREE.Quaternion();
   let pointerId: number | null = null;
   let lastX = 0,
     lastY = 0,
@@ -294,6 +297,7 @@ export async function createBall(container: HTMLElement) {
     event.preventDefault();
     pointerId = event.pointerId;
     coastRemaining = 0;
+    settling = false;
     lastX = event.clientX;
     lastY = event.clientY;
     pointerTime = event.timeStamp;
@@ -401,6 +405,18 @@ export async function createBall(container: HTMLElement) {
       if (reduced.matches) {
         handRotation.quaternion.identity();
         springVelocity.set(0, 0, 0);
+      } else if (thinking) {
+        const speed = launchVelocity.length();
+        dragAxis.copy(launchVelocity).divideScalar(speed);
+        dragRotation.setFromAxisAngle(dragAxis, speed * dt);
+        handRotation.quaternion.premultiply(dragRotation).normalize();
+        internalLag.premultiply(dragRotation.clone().invert()).normalize();
+      } else if (settling) {
+        handRotation.quaternion.slerp(restRotation, 1 - Math.exp(-dt * 16));
+        if (handRotation.quaternion.angleTo(restRotation) < 0.002) {
+          handRotation.quaternion.identity();
+          settling = false;
+        }
       } else if (coastRemaining > 0) {
         const speed = springVelocity.length();
         if (speed > 0.001) {
@@ -414,6 +430,15 @@ export async function createBall(container: HTMLElement) {
         coastRemaining = Math.max(0, coastRemaining - dt);
       } else stepRotationSpring(handRotation.quaternion, springVelocity, dt);
     }
+    const rotationSpeed =
+      previousRotation.angleTo(handRotation.quaternion) / dt;
+    previousRotation.copy(handRotation.quaternion);
+    rotationEnergy = THREE.MathUtils.damp(
+      rotationEnergy,
+      reduced.matches ? 0 : Math.min(1, rotationSpeed / 9),
+      6,
+      dt,
+    );
     disturbance *= Math.exp(-dt * 2);
     slosh.multiplyScalar(Math.exp(-dt * 2.2));
     internalLag.slerp(restRotation, 1 - Math.exp(-dt * 1.7));
@@ -428,11 +453,11 @@ export async function createBall(container: HTMLElement) {
     );
     draftEnergy = THREE.MathUtils.damp(draftEnergy, draftTarget, 3, dt);
     if (!reduced.matches)
-      atmosphereTime += dt * (0.12 + typingEnergy * 0.8 + energy * 1.1);
+      atmosphereTime += dt * (0.3 + typingEnergy * 0.7 + rotationEnergy * 1.6);
     atmosphere.update(
       reduced.matches ? 0 : atmosphereTime,
       camera.aspect,
-      reduced.matches ? 0 : energy,
+      reduced.matches ? 0 : rotationEnergy,
       reduced.matches ? 0 : typingEnergy,
       reduced.matches ? 0 : draftEnergy,
     );
@@ -461,18 +486,6 @@ export async function createBall(container: HTMLElement) {
         3,
         dt,
       );
-      ball.rotation.z =
-        Math.sin(elapsed * (thinking ? 10 : 0.6)) * 0.025 * energy;
-      if (thinking) {
-        const turn = Math.min((elapsed - thinkingStart) / 2.25, 1);
-        ball.rotation.y = Math.PI * 2 * (turn * turn * (3 - 2 * turn));
-      } else
-        ball.rotation.y = THREE.MathUtils.damp(
-          ball.rotation.y,
-          Math.PI * 2 * Math.round(ball.rotation.y / (Math.PI * 2)),
-          5,
-          dt,
-        );
     } else {
       die.quaternion.copy(internalLag);
       die.position.z = 0.56;
@@ -493,13 +506,24 @@ export async function createBall(container: HTMLElement) {
     },
     setState(next: BallState, answer?: string) {
       if (next === "thinking" && state !== "thinking") {
-        thinkingStart = elapsed;
-        ball.rotation.y = 0;
+        const azimuth = Math.random() * Math.PI * 2;
+        const tilt = (Math.random() - 0.5) * 0.9;
+        launchVelocity
+          .set(Math.cos(azimuth), Math.sin(azimuth), tilt)
+          .normalize()
+          .multiplyScalar(5 + Math.random() * 7);
+        settling = false;
       }
       if (next === "thinking") {
         coastRemaining = 0;
         angularVelocity.set(0, 0);
         springVelocity.set(0, 0, 0);
+      }
+      if (state === "thinking" && next !== "thinking") {
+        launchVelocity.set(0, 0, 0);
+        springVelocity.set(0, 0, 0);
+        coastRemaining = 0;
+        settling = true;
       }
       state = next;
       if (answer) writeAnswer(answer);

@@ -22,22 +22,38 @@ export function createAtmosphere() {
       uniform float draft;
       void main() {
         vec2 p = (uvScreen - .5) * vec2(aspect, 1.);
-        float t = time;
-        float activity = max(typing * .7, energy);
-        float angle = atan(p.y, p.x);
-        float radius = length(p * vec2(.78, 1.));
-        float warp = sin(p.x * 4. + t) * (.025 + typing * .025) + sin(p.y * 5. - t * .7) * .025;
-        warp += sin(angle * 3. + radius * 8. - t * 1.5) * energy * .04;
-        warp += sin(radius * 22. - t * 3.) * typing * .025;
-        float halo = exp(-pow((radius - .32 - draft * .035 - warp) * 5., 2.));
-        halo *= smoothstep(0., .18, min(uvScreen.y, 1. - uvScreen.y));
-        float contour = pow(.5 + .5 * sin((radius + warp) * (70. + draft * 18.) - t * (1. + energy * 2.)), 14.);
-        float fade = exp(-radius * radius * 4.);
-        vec3 base = vec3(.027, .029, .040);
-        vec3 mist = mix(vec3(.12, .105, .18), vec3(.22, .17, .34), activity) * halo * fade;
-        vec3 line = vec3(.13, .12, .20) * contour * halo * (.13 + activity * .45);
+        float motion = smoothstep(.025, .8, clamp(energy, 0., 1.));
+        float disturbance = clamp(typing, 0., 1.);
+        float radius = length(p);
+        float edge = smoothstep(0., .17, min(uvScreen.y, 1. - uvScreen.y));
+        float horizontalBend = sin(p.x * 2.5 - time * .24) * .035;
+        horizontalBend += sin(p.x * 4.2 + time * .18) * .016;
+        horizontalBend += disturbance * (
+          sin(p.x * 10. - time * 2.1) * .035 +
+          sin(p.x * 19. + time * 2.9) * .015
+        );
+        horizontalBend += draft * sin(p.x * 5. - time * .4) * .012;
+        float horizontalDistance = p.y - horizontalBend;
+        float horizontalEnvelope = exp(-pow(horizontalDistance * 7., 2.));
+        float horizontalPhase = horizontalDistance * 150. + sin(p.x * 3. - time * .3) * .7;
+        float horizontalLines = pow(.5 + .5 * cos(horizontalPhase), 12.);
+        float horizontalMist = exp(-pow(horizontalDistance * 4.8, 2.));
+
+        float radialWarp = sin(p.x * 7. + p.y * 5. - time * .8) * disturbance * .012;
+        float radialPhase = (radius + radialWarp) * 100. - time * 4.5;
+        float radialLines = pow(.5 + .5 * cos(radialPhase), 13.);
+        float radialEnvelope = smoothstep(.12, .29, radius) * exp(-radius * radius * 1.8);
+        float radialMist = exp(-pow((radius - .38) * 3., 2.));
+
+        float lines = mix(horizontalLines * horizontalEnvelope, radialLines * radialEnvelope, motion);
+        float mist = mix(horizontalMist, radialMist * .65, motion);
+        float activity = max(disturbance * .6, motion);
+        vec3 base = vec3(.022, .023, .033);
+        vec3 violet = mix(vec3(.13, .115, .21), vec3(.20, .15, .32), activity);
+        vec3 light = violet * (mist * .24 + lines * (.22 + activity * .35));
+        float vignette = 1. - smoothstep(.3, 1.3, length(uvScreen - .5));
         float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - .5;
-        gl_FragColor = vec4(base + mist * (.58 + activity * .55) + line + grain * .008, 1.);
+        gl_FragColor = vec4(base + light * edge * vignette + grain * .006, 1.);
       }`,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
