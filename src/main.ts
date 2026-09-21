@@ -7,7 +7,7 @@ import { createQuestionGhosts } from "./question-ghosts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
-<header><h1>8 Ball</h1></header>
+<header><h1>The real 8 ball wisdom</h1></header>
 <main>
 <div id="stage" role="region" tabindex="0" aria-label="Magic 8 ball. Drag to rotate, or use arrow keys. Home resets the view."></div>
 <form aria-label="Ask the ball"><p id="status" class="sr-only" role="status" aria-live="polite"></p><label class="sr-only" for="question">Your yes or no question</label><div class="question-field"><input id="question" name="question" placeholder="Ask a question…" minlength="2" maxlength="500" autocomplete="off" required/><button class="ask" type="submit" aria-label="Ask the ball"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div></form>
