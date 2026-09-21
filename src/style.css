@@ -65,7 +65,7 @@ form {
   display: flex;
   background: #141419;
   border: 1px solid #303039;
-  border-radius: 18px;
+  border-radius: 999px;
   padding: 7px;
   box-shadow: 0 12px 40px #00000020;
 }
@@ -95,7 +95,7 @@ input::placeholder {
   min-width: 44px;
   min-height: 44px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 50%;
   background: #d5d0e4;
   color: #282431;
   font-size: 22px;
