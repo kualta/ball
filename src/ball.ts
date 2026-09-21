@@ -20,6 +20,11 @@ export async function createBall(container: HTMLElement) {
   container.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const atmosphere = createAtmosphere();
+  let typingImpulse = 0,
+    typingEnergy = 0,
+    draftTarget = 0,
+    draftEnergy = 0,
+    atmosphereTime = 0;
   scene.add(atmosphere.mesh);
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 30);
   camera.position.set(0, 0.12, 7.2);
@@ -414,10 +419,22 @@ export async function createBall(container: HTMLElement) {
     internalLag.slerp(restRotation, 1 - Math.exp(-dt * 1.7));
     fluidMaterial.uniforms.uSlosh.value.copy(slosh);
     energy = THREE.MathUtils.damp(energy, thinking ? 1 : disturbance, 3, dt);
+    typingImpulse *= Math.exp(-dt * 1.6);
+    typingEnergy = THREE.MathUtils.damp(
+      typingEnergy,
+      thinking ? 0 : typingImpulse,
+      7,
+      dt,
+    );
+    draftEnergy = THREE.MathUtils.damp(draftEnergy, draftTarget, 3, dt);
+    if (!reduced.matches)
+      atmosphereTime += dt * (0.12 + typingEnergy * 0.8 + energy * 1.1);
     atmosphere.update(
-      reduced.matches ? 0 : elapsed,
+      reduced.matches ? 0 : atmosphereTime,
       camera.aspect,
       reduced.matches ? 0 : energy,
+      reduced.matches ? 0 : typingEnergy,
+      reduced.matches ? 0 : draftEnergy,
     );
     fluidMaterial.uniforms.uTime.value = reduced.matches ? 0 : elapsed;
     fluidMaterial.uniforms.uEnergy.value = reduced.matches ? 0 : energy;
@@ -470,6 +487,10 @@ export async function createBall(container: HTMLElement) {
   };
   renderer.domElement.addEventListener("webglcontextlost", lost);
   return {
+    setDraft(length: number) {
+      typingImpulse = 1;
+      draftTarget = Math.min(1, length / 120);
+    },
     setState(next: BallState, answer?: string) {
       if (next === "thinking" && state !== "thinking") {
         thinkingStart = elapsed;

@@ -26,6 +26,10 @@ createBall(stage)
     stage.innerHTML = '<div class="fallback-ball"><span>8</span></div>';
   });
 
+input.addEventListener("input", () => {
+  ball?.setDraft(input.value.length);
+});
+
 function showAnswer(answer: string) {
   ball?.setState("answer", answer);
   stage.setAttribute(
