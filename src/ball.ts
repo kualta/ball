@@ -1,3 +1,4 @@
+import { stepRotationSpring } from "./rotation-spring";
 import { createAtmosphere } from "./atmosphere";
 import { layoutAnswer } from "./answer-layout";
 import * as THREE from "three";
@@ -249,6 +250,7 @@ export async function createBall(container: HTMLElement) {
     lastY = 0,
     pointerTime = 0;
   const angularVelocity = new THREE.Vector2();
+  const springVelocity = new THREE.Vector3();
   const slosh = new THREE.Vector2();
   const internalLag = new THREE.Quaternion();
   const dragRotation = new THREE.Quaternion();
@@ -289,6 +291,7 @@ export async function createBall(container: HTMLElement) {
     lastY = event.clientY;
     pointerTime = event.timeStamp;
     angularVelocity.set(0, 0);
+    springVelocity.set(0, 0, 0);
     container.setPointerCapture(event.pointerId);
     container.dataset.dragging = "true";
     container.dataset.pointerFocus = "true";
@@ -305,14 +308,17 @@ export async function createBall(container: HTMLElement) {
       THREE.MathUtils.clamp(dx / dt, -5, 5),
       THREE.MathUtils.clamp(dy / dt, -5, 5),
     );
+    springVelocity.set(angularVelocity.y, angularVelocity.x, 0);
     lastX = event.clientX;
     lastY = event.clientY;
     pointerTime = event.timeStamp;
   }
   function pointerEnd(event: PointerEvent) {
     if (event.pointerId !== pointerId) return;
-    if (event.type !== "pointerup" || event.timeStamp - pointerTime > 100)
+    if (event.type !== "pointerup" || event.timeStamp - pointerTime > 100) {
       angularVelocity.set(0, 0);
+      springVelocity.set(0, 0, 0);
+    }
     pointerId = null;
     delete container.dataset.dragging;
     if (container.hasPointerCapture(event.pointerId))
@@ -330,10 +336,12 @@ export async function createBall(container: HTMLElement) {
       event.preventDefault();
       handRotation.quaternion.identity();
       angularVelocity.set(0, 0);
+      springVelocity.set(0, 0, 0);
     } else if (directions[event.key]) {
       event.preventDefault();
       rotateFromDrag(...directions[event.key]);
       angularVelocity.set(0, 0);
+      springVelocity.set(0, 0, 0);
     }
   }
   container.addEventListener("pointerdown", pointerDown);
@@ -374,16 +382,15 @@ export async function createBall(container: HTMLElement) {
     last = now;
     elapsed += dt;
     const thinking = state === "thinking";
-    if (pointerId === null && !reduced.matches) {
-      rotateFromDrag(angularVelocity.x * dt, angularVelocity.y * dt);
-      angularVelocity.multiplyScalar(Math.exp(-dt * 4));
+    if (pointerId === null) {
+      if (reduced.matches) {
+        handRotation.quaternion.identity();
+        springVelocity.set(0, 0, 0);
+      } else stepRotationSpring(handRotation.quaternion, springVelocity, dt);
     }
-    if (reduced.matches) angularVelocity.set(0, 0);
     disturbance *= Math.exp(-dt * 2);
     slosh.multiplyScalar(Math.exp(-dt * 2.2));
     internalLag.slerp(restRotation, 1 - Math.exp(-dt * 1.7));
-    if (thinking && pointerId === null)
-      handRotation.quaternion.slerp(restRotation, 1 - Math.exp(-dt * 3));
     fluidMaterial.uniforms.uSlosh.value.copy(slosh);
     energy = THREE.MathUtils.damp(energy, thinking ? 1 : disturbance, 3, dt);
     atmosphere.update(
@@ -447,7 +454,10 @@ export async function createBall(container: HTMLElement) {
         thinkingStart = elapsed;
         ball.rotation.y = 0;
       }
-      if (next === "thinking") angularVelocity.set(0, 0);
+      if (next === "thinking") {
+        angularVelocity.set(0, 0);
+        springVelocity.set(0, 0, 0);
+      }
       state = next;
       if (answer) writeAnswer(answer);
       else if (next === "thinking") writeAnswer("");
