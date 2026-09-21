@@ -46,7 +46,7 @@ export function createAtmosphere() {
         float envelope = exp(-pow((distance - motion * .32) * mix(7., 1.8, motion), 2.));
         float lines = pow(.5 + .5 * cos(phase), 12.) * envelope;
         float mist = exp(-pow((distance - motion * .32) * mix(4.8, 2., motion), 2.));
-        float activity = 1. - (1. - disturbance * .6) * (1. - motion);
+        float activity = max(disturbance * .6, motion);
         vec3 base = vec3(.022, .023, .033);
         vec3 violet = mix(vec3(.13, .115, .21), vec3(.20, .15, .32), activity);
         vec3 light = violet * (mist * .24 + lines * (.22 + activity * .35));
