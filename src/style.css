@@ -25,24 +25,13 @@ header {
   padding: 0 6%;
   justify-content: center;
 }
-.wordmark {
-  font-family: Manrope, sans-serif;
-  font-weight: 800;
-  font-size: 32px;
-  letter-spacing: -2px;
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.brand-dot {
-  height: 7px;
-  width: 7px;
-  background: #b58bff;
-  box-shadow: 0 0 14px #9d5cff;
-  border-radius: 50%;
-  margin-top: 18px;
+header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  color: #e0d3ee;
+  text-shadow: 0 0 28px #9862cb60;
 }
 main {
   flex: 1;
@@ -58,7 +47,9 @@ main {
   height: 0;
   flex: 1;
   min-height: 240px;
-  touch-action: pan-y;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
 }
 #stage canvas {
   display: block;
@@ -185,8 +176,8 @@ a:focus-visible {
     height: 80px;
     padding: 0 24px;
   }
-  .wordmark {
-    font-size: 28px;
+  header h1 {
+    font-size: 18px;
   }
   #stage {
     height: 0;
@@ -205,6 +196,12 @@ a:focus-visible {
     transparent 65%
   );
 }
-.wordmark {
-  text-shadow: 0 0 25px #9862cb50;
+
+#stage[data-dragging="true"] {
+  cursor: grabbing;
+}
+#stage:focus-visible:not([data-pointer-focus]) {
+  outline: 1px solid #af7fea55;
+  outline-offset: -8px;
+  border-radius: 24px;
 }

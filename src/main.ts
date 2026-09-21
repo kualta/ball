@@ -5,9 +5,9 @@ import { createBall } from "./ball";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
-<header><a class="wordmark" href="/" aria-label="Ball home">ball<span class="brand-dot"></span></a></header>
+<header><h1>Ask an 8 ball</h1></header>
 <main>
-<div id="stage" role="img" aria-label="Magic 8 ball"><div class="loading-orb"></div></div>
+<div id="stage" role="region" tabindex="0" aria-label="Magic 8 ball. Drag to rotate, or use arrow keys. Home resets the view."><div class="loading-orb"></div></div>
 <form aria-label="Ask the ball"><p id="status" class="sr-only" role="status" aria-live="polite"></p><label class="sr-only" for="question">Your yes or no question</label><div class="question-field"><input id="question" name="question" placeholder="Ask a question…" minlength="2" maxlength="500" autocomplete="off" required/><button class="ask" type="submit" aria-label="Ask the ball"><span aria-hidden="true">↗</span></button></div></form>
 </main>`;
 const input = document.querySelector<HTMLInputElement>("#question")!;
@@ -28,7 +28,10 @@ createBall(stage)
 
 function showAnswer(answer: string) {
   ball?.setState("answer", answer);
-  stage.setAttribute("aria-label", `Magic 8 ball: ${answer}`);
+  stage.setAttribute(
+    "aria-label",
+    `Magic 8 ball: ${answer}. Drag to rotate, or use arrow keys. Home resets the view.`,
+  );
   const fallback = stage.querySelector(".fallback-ball span");
   if (fallback) {
     fallback.textContent = answer;

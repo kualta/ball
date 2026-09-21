@@ -12,7 +12,7 @@ bun run build
 bun run start
 ```
 
-Open http://localhost:3000. The interface is limited to the Ball header, the ball, and a bottom question field. A server key is required for questions; errors appear inline only when needed. The API retains explicit classic mode for development. `bun run dev` restarts the server on edits; rebuild frontend edits with `bun run build`.
+Open http://localhost:3000. The interface is limited to an “Ask an 8 ball” heading, the ball, and a bottom question field. A server key is required for questions; errors appear inline only when needed. The API retains explicit classic mode for development. `bun run dev` restarts the server on edits; rebuild frontend edits with `bun run build`.
 
 ## Validate
 
@@ -24,3 +24,5 @@ bun run build
 The model is in `public/models/ball.glb`. Rendering uses WebGL2, capped device pixel ratio, reduced-motion handling, and a static fallback if WebGL is unavailable. Liquid motion is a real-time optical approximation with damped die movement, not a computational fluid dynamics solver. Question text is sent to TypeSafe AI only when a live question is submitted; the application does not persist questions.
 
 See [API research](README-api.md) for the documented Jev contract, probability interpretation, security limits, and integration tests. Probabilities describe the model's choice of response; they do not establish the actual likelihood of future events.
+
+Drag the ball in any direction to rotate it; the die and liquid respond with damped motion. Arrow keys rotate the focused ball and Home resets the view. Submitting a question returns the window toward you. Reduced-motion settings disable automatic spin and release inertia while preserving direct manipulation.
