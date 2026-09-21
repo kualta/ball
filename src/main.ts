@@ -1,5 +1,6 @@
 import "@fontsource/dm-sans/400.css";
 import "@fontsource/manrope/500.css";
+import "@fontsource/manrope/700.css";
 import "./style.css";
 import { createBall } from "./ball";
 import { createQuestionGhosts } from "./question-ghosts";
@@ -8,7 +9,7 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
 <header><h1>8 Ball</h1></header>
 <main>
-<div id="stage" role="region" tabindex="0" aria-label="Magic 8 ball. Drag to rotate, or use arrow keys. Home resets the view."><div class="loading-orb"></div></div>
+<div id="stage" role="region" tabindex="0" aria-label="Magic 8 ball. Drag to rotate, or use arrow keys. Home resets the view."></div>
 <form aria-label="Ask the ball"><p id="status" class="sr-only" role="status" aria-live="polite"></p><label class="sr-only" for="question">Your yes or no question</label><div class="question-field"><input id="question" name="question" placeholder="Ask a question…" minlength="2" maxlength="500" autocomplete="off" required/><button class="ask" type="submit" aria-label="Ask the ball"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div></form>
 </main>`;
 const input = document.querySelector<HTMLInputElement>("#question")!;
@@ -22,7 +23,6 @@ let ball: Awaited<ReturnType<typeof createBall>> | undefined;
 createBall(stage)
   .then((value) => {
     ball = value;
-    document.querySelector(".loading-orb")?.remove();
   })
   .catch(() => {
     stage.innerHTML = '<div class="fallback-ball"><span>8</span></div>';
