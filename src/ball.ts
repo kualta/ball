@@ -251,6 +251,7 @@ export async function createBall(container: HTMLElement) {
     pointerTime = 0;
   const angularVelocity = new THREE.Vector2();
   const springVelocity = new THREE.Vector3();
+  let coastRemaining = 0;
   const slosh = new THREE.Vector2();
   const internalLag = new THREE.Quaternion();
   const dragRotation = new THREE.Quaternion();
@@ -287,6 +288,7 @@ export async function createBall(container: HTMLElement) {
       return;
     event.preventDefault();
     pointerId = event.pointerId;
+    coastRemaining = 0;
     lastX = event.clientX;
     lastY = event.clientY;
     pointerTime = event.timeStamp;
@@ -305,10 +307,13 @@ export async function createBall(container: HTMLElement) {
     const dt = Math.max(0.008, (event.timeStamp - pointerTime) / 1000);
     rotateFromDrag(dx, dy);
     angularVelocity.set(
-      THREE.MathUtils.clamp(dx / dt, -5, 5),
-      THREE.MathUtils.clamp(dy / dt, -5, 5),
+      THREE.MathUtils.clamp(dx / dt, -14, 14),
+      THREE.MathUtils.clamp(dy / dt, -14, 14),
     );
-    springVelocity.set(angularVelocity.y, angularVelocity.x, 0);
+    springVelocity.lerp(
+      new THREE.Vector3(angularVelocity.y, angularVelocity.x, 0),
+      0.65,
+    );
     lastX = event.clientX;
     lastY = event.clientY;
     pointerTime = event.timeStamp;
@@ -319,6 +324,11 @@ export async function createBall(container: HTMLElement) {
       angularVelocity.set(0, 0);
       springVelocity.set(0, 0, 0);
     }
+    coastRemaining = THREE.MathUtils.clamp(
+      (springVelocity.length() - 1.5) * 0.09,
+      0,
+      0.9,
+    );
     pointerId = null;
     delete container.dataset.dragging;
     if (container.hasPointerCapture(event.pointerId))
@@ -386,6 +396,17 @@ export async function createBall(container: HTMLElement) {
       if (reduced.matches) {
         handRotation.quaternion.identity();
         springVelocity.set(0, 0, 0);
+      } else if (coastRemaining > 0) {
+        const speed = springVelocity.length();
+        if (speed > 0.001) {
+          dragAxis.copy(springVelocity).divideScalar(speed);
+          dragRotation.setFromAxisAngle(dragAxis, speed * dt);
+          handRotation.quaternion.premultiply(dragRotation).normalize();
+          internalLag.premultiply(dragRotation.clone().invert()).normalize();
+          disturbance = Math.max(disturbance, Math.min(1, speed * 0.15));
+        }
+        springVelocity.multiplyScalar(Math.exp(-1.4 * dt));
+        coastRemaining = Math.max(0, coastRemaining - dt);
       } else stepRotationSpring(handRotation.quaternion, springVelocity, dt);
     }
     disturbance *= Math.exp(-dt * 2);
@@ -455,6 +476,7 @@ export async function createBall(container: HTMLElement) {
         ball.rotation.y = 0;
       }
       if (next === "thinking") {
+        coastRemaining = 0;
         angularVelocity.set(0, 0);
         springVelocity.set(0, 0, 0);
       }
