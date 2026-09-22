@@ -10,6 +10,7 @@ import {
   type Locale,
 } from "./i18n";
 import { ANSWERS, type Answer } from "./answers";
+import { createShareImage, shareCopy } from "./share-image";
 import { createBall } from "./ball";
 import { createQuestionGhosts } from "./question-ghosts";
 
@@ -21,6 +22,7 @@ let locale = resolveLocale(
   savedLocale ? [savedLocale, ...navigator.languages] : navigator.languages,
 );
 let lastAnswer: Answer | undefined;
+let answeredQuestion = "";
 let failed = false;
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
@@ -34,7 +36,9 @@ app.innerHTML = `
 <main>
 <div id="stage" role="region" tabindex="0" aria-label="Magic 8 ball. Drag to rotate, or use arrow keys. Home resets the view."></div>
 <form aria-label="Ask the ball"><p id="status" class="sr-only" role="status" aria-live="polite"></p><label class="sr-only" for="question">Your yes or no question</label><div class="question-field"><input id="question" name="question" dir="auto" placeholder="Ask a question…" minlength="2" maxlength="500" autocomplete="off" required/><button class="ask" type="submit" aria-label="Ask the ball"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div></form>
+<button class="share-answer" type="button" hidden><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3m-4 4 4-4 4 4M5 13v7h14v-7"/></svg><span></span></button>
 </main>
+<dialog class="share-preview" aria-labelledby="share-title"><div class="share-toolbar"><h2 id="share-title"></h2><button class="share-close" type="button">×</button></div><img class="share-image" alt=""/><div class="share-actions"><a class="share-save" download="8-ball.png"></a><button class="share-native" type="button" hidden></button></div><p class="share-error" role="status"></p></dialog>
 <footer><span><span id="credit">made by</span> <a href="https://kualta.dev" target="_blank" rel="noopener">kualta</a></span><a class="social" href="https://x.com/kualts" target="_blank" rel="noopener" aria-label="kualta · X"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a><a class="social" href="https://bsky.app/profile/kualta.dev" target="_blank" rel="noopener" aria-label="kualta · Bluesky"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/></svg></a></footer>`;
 const input = document.querySelector<HTMLInputElement>("#question")!;
 const status = document.querySelector<HTMLElement>("#status")!;
@@ -42,6 +46,56 @@ const ask = document.querySelector<HTMLButtonElement>(".ask")!;
 const form = document.querySelector<HTMLFormElement>("form")!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
 const ghosts = createQuestionGhosts(stage);
+const shareButton = document.querySelector<HTMLButtonElement>(".share-answer")!;
+const shareDialog =
+  document.querySelector<HTMLDialogElement>(".share-preview")!;
+const shareImage = document.querySelector<HTMLImageElement>(".share-image")!;
+const shareSave = document.querySelector<HTMLAnchorElement>(".share-save")!;
+const shareNative = document.querySelector<HTMLButtonElement>(".share-native")!;
+const shareClose = document.querySelector<HTMLButtonElement>(".share-close")!;
+const shareError = document.querySelector<HTMLElement>(".share-error")!;
+let imageUrl: string | undefined;
+let shareFile: File | undefined;
+shareClose.addEventListener("click", () => shareDialog.close());
+shareDialog.addEventListener("close", () => {
+  if (imageUrl) URL.revokeObjectURL(imageUrl);
+  imageUrl = undefined;
+  shareImage.removeAttribute("src");
+  shareSave.removeAttribute("href");
+  shareFile = undefined;
+});
+shareButton.addEventListener("click", async () => {
+  if (!lastAnswer || !ball || busy) return;
+  shareButton.disabled = true;
+  try {
+    const answer = localizeAnswer(lastAnswer, locale);
+    const question = answeredQuestion;
+    await document.fonts.ready;
+    const blob = await createShareImage(question, ball.capture(answer), locale);
+    imageUrl = URL.createObjectURL(blob);
+    shareFile = new File([blob], "8-ball.png", { type: "image/png" });
+    shareImage.src = imageUrl;
+    shareImage.alt = `${question} — ${answer}`;
+    shareSave.href = imageUrl;
+    shareNative.hidden = !navigator.canShare?.({ files: [shareFile] });
+    shareError.textContent = "";
+    shareDialog.showModal();
+  } catch {
+    status.className = "error";
+    status.textContent = shareCopy[locale].error;
+  } finally {
+    shareButton.disabled = false;
+  }
+});
+shareNative.addEventListener("click", async () => {
+  if (!shareFile) return;
+  try {
+    await navigator.share({ files: [shareFile] });
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "AbortError"))
+      shareError.textContent = shareCopy[locale].error;
+  }
+});
 let busy = false;
 let ball: Awaited<ReturnType<typeof createBall>> | undefined;
 createBall(stage, translations[locale].prompt)
@@ -95,6 +149,7 @@ async function submit() {
   if (busy || !input.value.trim()) return;
   const question = input.value.trim();
   busy = true;
+  shareButton.hidden = true;
   failed = false;
   ask.disabled = true;
   input.readOnly = true;
@@ -114,7 +169,9 @@ async function submit() {
     const result = await response.json();
     if (!response.ok) throw new Error("Couldn't get an answer. Try again.");
     if (!ANSWERS.includes(result.answer)) throw new Error("Invalid answer");
+    answeredQuestion = question;
     showAnswer(result.answer);
+    shareButton.hidden = false;
   } catch {
     await evaporation;
     input.value = question;
@@ -140,6 +197,12 @@ form.addEventListener("submit", (event) => {
 const languageSelect = document.querySelector<HTMLSelectElement>("#language")!;
 function applyLocale() {
   const copy = translations[locale];
+  const sharing = shareCopy[locale];
+  shareButton.querySelector("span")!.textContent = sharing.preview;
+  document.querySelector("#share-title")!.textContent = sharing.preview;
+  shareClose.setAttribute("aria-label", sharing.close);
+  shareSave.textContent = sharing.save;
+  shareNative.textContent = sharing.share;
   document.documentElement.lang = locale;
   document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
   languageSelect.value = locale;

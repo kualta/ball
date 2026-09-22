@@ -559,6 +559,54 @@ export async function createBall(
   };
   renderer.domElement.addEventListener("webglcontextlost", lost);
   return {
+    capture(answer: string): HTMLCanvasElement {
+      const size = renderer.getSize(new THREE.Vector2());
+      const pixelRatio = renderer.getPixelRatio();
+      const savedText = faceText;
+      const handQuaternion = handRotation.quaternion.clone();
+      const ballQuaternion = ball.quaternion.clone();
+      const dieQuaternion = die.quaternion.clone();
+      const diePosition = die.position.clone();
+      const faceColor = faceMaterial.color.clone();
+      const captureCamera = camera.clone();
+      const image = document.createElement("canvas");
+      image.width = image.height = 1200;
+      try {
+        writeAnswer(answer);
+        handRotation.quaternion.identity();
+        ball.quaternion.identity();
+        die.quaternion.identity();
+        die.position.z = 0.56;
+        faceMaterial.color.setScalar(1);
+        captureCamera.aspect = 1;
+        captureCamera.position.set(0, 0.12, 8.4);
+        captureCamera.lookAt(0, 0, 0);
+        captureCamera.updateProjectionMatrix();
+        atmosphere.update(0, 1, 0, 0, 0);
+        renderer.setPixelRatio(1);
+        renderer.setSize(1200, 1200, false);
+        renderer.render(scene, captureCamera);
+        image.getContext("2d")!.drawImage(renderer.domElement, 0, 0);
+        return image;
+      } finally {
+        writeAnswer(savedText);
+        handRotation.quaternion.copy(handQuaternion);
+        ball.quaternion.copy(ballQuaternion);
+        die.quaternion.copy(dieQuaternion);
+        die.position.copy(diePosition);
+        faceMaterial.color.copy(faceColor);
+        renderer.setPixelRatio(pixelRatio);
+        renderer.setSize(size.x, size.y, false);
+        atmosphere.update(
+          atmosphereTime,
+          camera.aspect,
+          rotationEnergy.value,
+          typingEnergy.value,
+          draftEnergy.value,
+        );
+        renderer.render(scene, camera);
+      }
+    },
     setDraft(length: number) {
       typingImpulse = 1;
       draftTarget = Math.min(1, length / 120);
