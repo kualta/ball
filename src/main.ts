@@ -73,8 +73,27 @@ function showAnswer(canonical: Answer) {
   status.textContent = answer;
 }
 
+async function evaporateInput() {
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const animation = input.animate(
+      [
+        { opacity: 1, filter: "blur(0px)", transform: "translateY(0)" },
+        { opacity: 0, filter: "blur(6px)", transform: "translateY(-12px)" },
+      ],
+      { duration: 650, easing: "cubic-bezier(.2,.6,.3,1)", fill: "forwards" },
+    );
+    try {
+      await animation.finished;
+    } catch {}
+    input.value = "";
+    animation.cancel();
+  } else input.value = "";
+  ball?.setDraft(0);
+}
+
 async function submit() {
   if (busy || !input.value.trim()) return;
+  const question = input.value.trim();
   busy = true;
   failed = false;
   ask.disabled = true;
@@ -83,12 +102,13 @@ async function submit() {
   status.className = "sr-only";
   status.textContent = translations[locale].thinking;
   ball?.setState("thinking");
-  ghosts.start(input.value.trim());
+  ghosts.start(question);
+  const evaporation = evaporateInput();
   try {
     const response = await fetch("/api/answer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: input.value.trim() }),
+      body: JSON.stringify({ question }),
       signal: AbortSignal.timeout(25000),
     });
     const result = await response.json();
@@ -96,12 +116,16 @@ async function submit() {
     if (!ANSWERS.includes(result.answer)) throw new Error("Invalid answer");
     showAnswer(result.answer);
   } catch {
+    await evaporation;
+    input.value = question;
+    ball?.setDraft(question.length);
     failed = true;
     status.className = "error";
     status.textContent = translations[locale].error;
     ball?.setState("error", translations[locale].answers[11]);
   } finally {
     ghosts.stop();
+    await evaporation;
     busy = false;
     ask.disabled = false;
     input.readOnly = false;
