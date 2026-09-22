@@ -71,7 +71,7 @@ shareButton.addEventListener("click", async () => {
     const answer = localizeAnswer(lastAnswer, locale);
     const question = answeredQuestion;
     await document.fonts.ready;
-    const blob = await createShareImage(question, ball.capture(answer));
+    const blob = await createShareImage(question, ball.capture(answer), locale);
     imageUrl = URL.createObjectURL(blob);
     shareFile = new File([blob], "8-ball.png", { type: "image/png" });
     shareImage.src = imageUrl;

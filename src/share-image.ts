@@ -2,9 +2,17 @@ import type { Locale } from "./i18n";
 
 export const shareCopy: Record<
   Locale,
-  { preview: string; save: string; share: string; close: string; error: string }
+  {
+    heading: string;
+    preview: string;
+    save: string;
+    share: string;
+    close: string;
+    error: string;
+  }
 > = {
   en: {
+    heading: "I asked the real 8 ball:",
     preview: "Share answer",
     save: "Save image",
     share: "Share",
@@ -12,6 +20,7 @@ export const shareCopy: Record<
     error: "Couldn’t create the image. Try again.",
   },
   es: {
+    heading: "Le pregunté a la bola 8 real:",
     preview: "Compartir respuesta",
     save: "Guardar imagen",
     share: "Compartir",
@@ -19,6 +28,7 @@ export const shareCopy: Record<
     error: "No se pudo crear la imagen. Inténtalo de nuevo.",
   },
   pt: {
+    heading: "Perguntei à bola 8 de verdade:",
     preview: "Compartilhar resposta",
     save: "Salvar imagem",
     share: "Compartilhar",
@@ -26,6 +36,7 @@ export const shareCopy: Record<
     error: "Não foi possível criar a imagem. Tente novamente.",
   },
   fr: {
+    heading: "J’ai demandé à la vraie boule 8 :",
     preview: "Partager la réponse",
     save: "Enregistrer l’image",
     share: "Partager",
@@ -33,6 +44,7 @@ export const shareCopy: Record<
     error: "Impossible de créer l’image. Réessayez.",
   },
   de: {
+    heading: "Ich habe die echte 8-Kugel gefragt:",
     preview: "Antwort teilen",
     save: "Bild speichern",
     share: "Teilen",
@@ -40,6 +52,7 @@ export const shareCopy: Record<
     error: "Bild konnte nicht erstellt werden. Versuche es erneut.",
   },
   ru: {
+    heading: "Я спросил настоящий шар 8:",
     preview: "Поделиться ответом",
     save: "Сохранить изображение",
     share: "Поделиться",
@@ -47,6 +60,7 @@ export const shareCopy: Record<
     error: "Не удалось создать изображение. Попробуйте снова.",
   },
   ar: {
+    heading: "سألت كرة 8 الحقيقية:",
     preview: "مشاركة الإجابة",
     save: "حفظ الصورة",
     share: "مشاركة",
@@ -54,6 +68,7 @@ export const shareCopy: Record<
     error: "تعذّر إنشاء الصورة. حاول مجددًا.",
   },
   hi: {
+    heading: "मैंने असली 8 बॉल से पूछा:",
     preview: "जवाब साझा करें",
     save: "चित्र सहेजें",
     share: "साझा करें",
@@ -61,6 +76,7 @@ export const shareCopy: Record<
     error: "चित्र नहीं बन सका। फिर कोशिश करें।",
   },
   zh: {
+    heading: "我问了真正的8号球：",
     preview: "分享答案",
     save: "保存图片",
     share: "分享",
@@ -68,6 +84,7 @@ export const shareCopy: Record<
     error: "无法生成图片，请重试。",
   },
   ja: {
+    heading: "本物の8ボールに聞いてみた：",
     preview: "答えをシェア",
     save: "画像を保存",
     share: "シェア",
@@ -75,6 +92,7 @@ export const shareCopy: Record<
     error: "画像を作成できませんでした。もう一度どうぞ。",
   },
   ko: {
+    heading: "진짜 8볼에게 물어봤어요:",
     preview: "답변 공유",
     save: "이미지 저장",
     share: "공유",
@@ -113,6 +131,7 @@ function wrapQuestion(
 export function createShareImage(
   question: string,
   ball: HTMLCanvasElement,
+  locale: Locale,
 ): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = 1200;
@@ -127,11 +146,12 @@ export function createShareImage(
   context.fillStyle = fade;
   context.fillRect(0, 160, 1200, 150);
   context.fillStyle = "#aaa4bb";
-  context.font = "500 22px Manrope, Arial, sans-serif";
+  context.font = "500 36px Manrope, Arial, sans-serif";
+  context.direction = locale === "ar" ? "rtl" : "ltr";
   context.textAlign = "center";
-  context.fillText("I asked the real 8 ball:", 600, 60);
+  context.fillText(shareCopy[locale].heading, 600, 70);
   const text = question.replace(/\s+/g, " ").trim();
-  let fontSize = 52;
+  let fontSize = 60;
   let lines = wrapQuestion(context, text, fontSize);
   while (lines.length * fontSize * 1.35 > 260 && fontSize > 14) {
     fontSize -= 2;
