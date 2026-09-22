@@ -1,5 +1,5 @@
 :root {
-  --form-bottom: max(62px, calc(env(safe-area-inset-bottom) + 48px));
+  --form-bottom: max(46px, calc(env(safe-area-inset-bottom) + 40px));
   --bg: #07070a;
   --text: #e8e8ed;
   --text-strong: #dedce5;

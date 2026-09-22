@@ -29,7 +29,7 @@ export async function createBall(container: HTMLElement) {
     draftEnergy = smoothed();
   scene.add(atmosphere.mesh);
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 30);
-  camera.position.set(0, 0.12, 7.2);
+  camera.position.set(0, 0.12, 8.4);
   camera.lookAt(0, 0, 0);
   scene.add(new THREE.HemisphereLight(0xd8d2e3, 0x17121e, 2));
   const daylight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -397,7 +397,7 @@ export async function createBall(container: HTMLElement) {
     if (!width || !height) return;
     renderer.setSize(width, height);
     camera.aspect = width / height;
-    camera.position.z = Math.max(7.2, 6.4 / camera.aspect);
+    camera.position.z = Math.max(8.4, 7.5 / camera.aspect);
     camera.updateProjectionMatrix();
   }
   const observer = new ResizeObserver(resize);
