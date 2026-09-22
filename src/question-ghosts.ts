@@ -1,9 +1,16 @@
 const namespace = "http://www.w3.org/2000/svg";
-const minimumOrbit = 3000;
+const minimumOrbit = 5000;
+// Letters burn out from the first to the last across this many seconds.
+const sweep = 1.6;
+const ringStagger = 0.12;
+const letterFade = 0.6;
 
 function depart(svg: SVGSVGElement) {
   svg.classList.add("departing");
-  window.setTimeout(() => svg.remove(), 1200);
+  window.setTimeout(
+    () => svg.remove(),
+    (sweep + ringStagger * 3 + letterFade) * 1000 + 100,
+  );
 }
 
 export function createQuestionGhosts(container: HTMLElement) {
@@ -44,7 +51,16 @@ export function createQuestionGhosts(container: HTMLElement) {
         const text = document.createElementNS(namespace, "text");
         const textPath = document.createElementNS(namespace, "textPath");
         textPath.setAttribute("href", `#${name}`);
-        textPath.textContent = question;
+        const letters = [...question];
+        letters.forEach((letter, index) => {
+          const tspan = document.createElementNS(namespace, "tspan");
+          tspan.textContent = letter;
+          tspan.style.setProperty(
+            "--fade-delay",
+            `${(index / letters.length) * sweep + i * ringStagger}s`,
+          );
+          textPath.append(tspan);
+        });
         if (question.length > 95) {
           text.setAttribute("textLength", "980");
           text.setAttribute("lengthAdjust", "spacingAndGlyphs");
