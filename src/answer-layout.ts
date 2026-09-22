@@ -10,7 +10,13 @@ export function layoutAnswer(
   answer: string,
   measure: (text: string, size: number) => number,
 ): { size: number; lines: AnswerLine[] } {
-  const words = answer.trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const cjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(
+    answer,
+  );
+  const words = cjk
+    ? Array.from(answer.trim().toUpperCase())
+    : answer.trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const separator = cjk ? "" : " ";
   for (let size = 66; size >= 16; size -= 2) {
     const lines: AnswerLine[] = [];
     let index = 0;
@@ -19,13 +25,13 @@ export function layoutAnswer(
       const width = triangleWidth(y + size * 0.6);
       let text = "";
       while (index < words.length) {
-        const next = text ? `${text} ${words[index]}` : words[index];
+        const next = text ? `${text}${separator}${words[index]}` : words[index];
         if (measure(next, size) > width) break;
         text = next;
         index++;
       }
       if (!text) break;
-      lines.push({ text, y, width });
+      lines.push({ text: text.trim(), y, width });
     }
     if (index === words.length) return { size, lines };
   }

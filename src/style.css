@@ -317,3 +317,40 @@ footer a:hover {
     animation: rise 240ms var(--ease-out);
   }
 }
+
+.language-picker {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  right: max(20px, env(safe-area-inset-right));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(200, 193, 235, 0.12);
+  border-radius: 24px;
+  background: rgba(16, 15, 24, 0.65);
+  backdrop-filter: blur(16px);
+  color: #b6b2c4;
+  direction: ltr;
+}
+.language-picker select {
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  max-width: 125px;
+  color-scheme: dark;
+}
+.language-picker:focus-within {
+  border-color: #a49ac4;
+}
+.language-picker select:focus-visible {
+  outline: none;
+}
+.language-picker option {
+  background: #15131e;
+  color: #eeebf5;
+}
