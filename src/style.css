@@ -289,6 +289,9 @@ footer a:hover {
   height: 20px;
   border-radius: 50%;
 }
+.social svg {
+  translate: 0 1px;
+}
 @keyframes rise {
   from {
     opacity: 0;
