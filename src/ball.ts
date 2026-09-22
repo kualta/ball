@@ -7,7 +7,10 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 type BallState = "idle" | "thinking" | "answer" | "error";
 const clamp01 = (value: number) => THREE.MathUtils.clamp(value, 0, 1);
-export async function createBall(container: HTMLElement) {
+export async function createBall(
+  container: HTMLElement,
+  initialText = "ASK A QUESTION",
+) {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
@@ -172,6 +175,7 @@ export async function createBall(container: HTMLElement) {
     context.closePath();
     context.clip();
     context.font = faceFont(layout.size);
+    context.direction = /[\u0600-\u06ff]/.test(answer) ? "rtl" : "ltr";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillStyle = "#f0eff8";
@@ -181,7 +185,7 @@ export async function createBall(container: HTMLElement) {
     context.restore();
     texture.needsUpdate = true;
   }
-  writeAnswer("ASK A QUESTION");
+  writeAnswer(initialText);
   document.fonts
     ?.load(faceFont(48))
     .then(() => !disposed && writeAnswer(faceText))
@@ -558,6 +562,10 @@ export async function createBall(container: HTMLElement) {
     setDraft(length: number) {
       typingImpulse = 1;
       draftTarget = Math.min(1, length / 120);
+    },
+    setText(text: string) {
+      if (pendingText !== null) pendingText = text;
+      else writeAnswer(text);
     },
     setState(next: BallState, answer?: string) {
       if (next === "thinking") {
