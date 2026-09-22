@@ -77,8 +77,8 @@ async function evaporateInput() {
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const animation = input.animate(
       [
-        { opacity: 1, filter: "blur(0px)", transform: "translateY(0)" },
-        { opacity: 0, filter: "blur(6px)", transform: "translateY(-12px)" },
+        { opacity: 1, filter: "blur(0px)", transform: "translateX(0)" },
+        { opacity: 0, filter: "blur(6px)", transform: "translateX(28px)" },
       ],
       { duration: 650, easing: "cubic-bezier(.2,.6,.3,1)", fill: "forwards" },
     );
