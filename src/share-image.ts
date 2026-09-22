@@ -120,16 +120,16 @@ export function createShareImage(
   const context = canvas.getContext("2d")!;
   context.fillStyle = "#07070a";
   context.fillRect(0, 0, 1200, 1500);
-  context.drawImage(ball, 0, 280);
-  const fade = context.createLinearGradient(0, 280, 0, 430);
+  context.drawImage(ball, 0, 160);
+  const fade = context.createLinearGradient(0, 160, 0, 310);
   fade.addColorStop(0, "#07070a");
   fade.addColorStop(1, "#07070a00");
   context.fillStyle = fade;
-  context.fillRect(0, 280, 1200, 150);
+  context.fillRect(0, 160, 1200, 150);
   context.fillStyle = "#aaa4bb";
   context.font = "500 22px Manrope, Arial, sans-serif";
   context.textAlign = "center";
-  context.fillText("8 BALL", 600, 72);
+  context.fillText("I asked the real 8 ball:", 600, 60);
   const text = question.replace(/\s+/g, " ").trim();
   let fontSize = 52;
   let lines = wrapQuestion(context, text, fontSize);
@@ -139,7 +139,7 @@ export function createShareImage(
   }
   context.fillStyle = "#eeeaf5";
   context.direction = /[\u0600-\u06ff]/.test(text) ? "rtl" : "ltr";
-  const top = 225 - ((lines.length - 1) * fontSize * 1.35) / 2;
+  const top = 140;
   lines.forEach((line, index) =>
     context.fillText(line, 600, top + index * fontSize * 1.35),
   );
