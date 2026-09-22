@@ -440,7 +440,7 @@ export async function createBall(container: HTMLElement) {
         handRotation.quaternion.identity();
         springVelocity.set(0, 0, 0);
       } else if (thinking) {
-        const speed = smoothTo(spinSpeed, launchSpeed, 3.5, dt);
+        const speed = smoothTo(spinSpeed, launchSpeed, 4.5, dt);
         if (speed > 1e-4) {
           dragRotation.setFromAxisAngle(launchAxis, speed * dt);
           handRotation.quaternion.premultiply(dragRotation).normalize();
@@ -567,7 +567,7 @@ export async function createBall(container: HTMLElement) {
           launchAxis
             .set(Math.cos(azimuth), Math.sin(azimuth), tilt)
             .normalize();
-          launchSpeed = 3.5 + Math.random() * 2;
+          launchSpeed = 10 + Math.random() * 4;
           settlingAnswer = false;
         }
         coastRemaining = 0;
