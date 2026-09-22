@@ -1,11 +1,24 @@
 const namespace = "http://www.w3.org/2000/svg";
+const minimumOrbit = 3000;
+
+function depart(svg: SVGSVGElement) {
+  svg.classList.add("departing");
+  window.setTimeout(() => svg.remove(), 1200);
+}
 
 export function createQuestionGhosts(container: HTMLElement) {
   let active: SVGSVGElement | undefined;
+  let lingering: SVGSVGElement | undefined;
+  let lingerTimer: number | undefined;
+  let startedAt = 0;
   let generation = 0;
   return {
     start(question: string) {
       active?.remove();
+      window.clearTimeout(lingerTimer);
+      if (lingering) depart(lingering);
+      lingering = undefined;
+      startedAt = performance.now();
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       const svg = document.createElementNS(namespace, "svg");
       svg.setAttribute("viewBox", "0 0 800 600");
@@ -55,8 +68,15 @@ export function createQuestionGhosts(container: HTMLElement) {
       const svg = active;
       if (!svg) return;
       active = undefined;
-      svg.classList.add("departing");
-      window.setTimeout(() => svg.remove(), 1200);
+      // Fast answers still let the question orbit for a moment before fading.
+      lingering = svg;
+      lingerTimer = window.setTimeout(
+        () => {
+          lingering = undefined;
+          depart(svg);
+        },
+        Math.max(0, minimumOrbit - (performance.now() - startedAt)),
+      );
     },
   };
 }
